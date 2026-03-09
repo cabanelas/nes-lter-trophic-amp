@@ -12,6 +12,10 @@
 ##          by region and season for two time periods:              
 ##          TS1: 1978–1987                           
 ##          TS2: 1998–present (matched to chl-a)     
+##       1) log10(x+ (min/2))    for each station ; x = sum trophic level 
+##       2) average across stations for a cruise or year/season
+##       3) take a running mean with timespan ~ longest lived taxon 
+##       4) compute st.dev. of time-series 
 ##
 ## Inputs (data/raw/):
 ##   - EcoMon_plankton_v3_10.csv  (187513.4.4.tar.gz)
@@ -41,13 +45,13 @@ zp_full <- read_csv(here::here("raw",
 #            Tidy Data  
 ## ------------------------------------------ ##
 ## --- Add season column --- 
-zp <- zp_full %>%
-  mutate(season = case_when(
-    between(month_num, 3, 5)  ~ "Spring",
-    between(month_num, 6, 8)  ~ "Summer",
-    between(month_num, 9, 11) ~ "Fall",
-    TRUE                      ~ "Winter"
-  ))
+#zp <- zp_full %>%
+#  mutate(season = case_when(
+#    between(month_num, 3, 5)  ~ "Spring",
+#    between(month_num, 6, 8)  ~ "Summer",
+#    between(month_num, 9, 11) ~ "Fall",
+#    TRUE                      ~ "Winter"
+#  ))
 
 ## --- Filter regions of interest ---
 # exclude CC and NS [Region 0]
@@ -56,7 +60,7 @@ zp <- zp_full %>%
 # Region 2 = SNE (will become MAB)
 # Region 3 = GB
 # Region 4 = GOM
-zp <- zp %>%
+zp <- zp_full %>%
   filter(region %in% c("SNE", "MAB", "GOM", "GB")) %>%
   # rename SNE as MAB to align w phyto ts
   mutate(region = case_when(
@@ -133,9 +137,9 @@ ggplot(ts2_zp, aes(x = year, y = log10_zp)) +
 
 # two versions, needed downstream:
 # ts_zp (mutate)        - keeps all station-level rows, adds log_mean_zp as a 
-#                       repeated column. 
+#                         repeated column. 
 # ts_zp_sum (summarize) - collapses to one row per region/season/year.
-#                       Used for running mean (step 3).
+#                         Used for running mean (step 3).
 # log_mean_zp values are identical between the two - only shape differs
 ## ------------------------------------------ ##
 
@@ -208,14 +212,16 @@ ggplot(ts2_zp_sum, aes(x = year, y = log_mean_zp)) +
 ts1_rm <- ts1_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
-  mutate(run_mean_zp = runner::mean_run(log_mean_zp, na_rm = TRUE, k = 5)) %>%
+  mutate(run_mean_zp = runner::mean_run(log_mean_zp, k = 5, 
+                                        idx = year, na_rm = TRUE)) %>%
   ungroup()
 
 ## --- Time series 2 = 1998-now ---
 ts2_rm <- ts2_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
-  mutate(run_mean_zp = runner::mean_run(log_mean_zp, na_rm = TRUE, k = 5)) %>%
+  mutate(run_mean_zp = runner::mean_run(log_mean_zp, k = 5, 
+                                        idx = year, na_rm = TRUE)) %>%
   ungroup()
 
 ## --- plot ---
