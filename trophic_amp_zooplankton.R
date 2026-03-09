@@ -66,6 +66,7 @@ zp <- zp %>%
 
 # some observations have zooplankton abundance but volume == NA
 # may not have measured volume on all tows
+sum(is.na(zp_full$volume_1m2))
 zp_full %>%
   summarize(across(ctyp_10m2:pnepau_10m2, ~ sum(is.na(.))))
 
@@ -80,7 +81,7 @@ zp <- zp %>%
   drop_na(volume_1m2)
 
 ## ------------------------------------------ ##
-#    Diagnostic Plot 
+#    Plot Raw ZP displacement volume
 ## ------------------------------------------ ##
 ggplot(zp, aes(x = year, y = volume_1m2)) +
   geom_point(alpha = 0.3) +
@@ -92,23 +93,20 @@ ggplot(zp, aes(x = year, y = volume_1m2)) +
 #    Split into Two Time Series
 ## ------------------------------------------ ##
 
-# TS1: 1978–1987 
+## --- Time series 1 = 1978-1987 ---
 ts1_zp <- zp %>%
-  filter(between(year, 1978, 1987)) #it starts 1977
+  filter(between(year, 1978, 1987)) #starts 1977
 
-# TS2: 1998–present (matched to chla time series)
+## --- Time series 2 = 1998-now ---
+# matched to chla time series
 ts2_zp <- zp %>%
   filter(year >= 1998)
 
+rm(zp, zp_full)
 ## ------------------------------------------ ##
 #    1) Log Transformation
 ## ------------------------------------------ ##
 # find the minimum non-zero value for each region and season
-
-# computed per region/season, so values are not strictly
-# comparable across groups on the raw log scale
-# may want to switch to a single global offset before final analysis
-# if cross-region/season SD comparisons are made
 
 log_transform <- function(df) {
   df %>%
@@ -123,6 +121,7 @@ log_transform <- function(df) {
 ts1_zp <- log_transform(ts1_zp) # TS1: 1978–1987 
 ts2_zp <- log_transform(ts2_zp) # TS2: 1998–present
 
+## --- plot ---
 ggplot(ts2_zp, aes(x = year, y = log10_zp)) +
   geom_point() +
   facet_grid(season~region, scales = "free")
@@ -133,69 +132,69 @@ ggplot(ts2_zp, aes(x = year, y = log10_zp)) +
 # average across stations for a cruise or year/season
 
 # two versions, needed downstream:
-# ts_zp (mutate)      - keeps all station-level rows, adds log_mean_zp as a 
-#                       repeated column. Needed later to re-attach
-#                       station metadata (lat, lon, temp, salt).
-# ts_zp_a (summarize) - collapses to one row per region/season/year.
+# ts_zp (mutate)        - keeps all station-level rows, adds log_mean_zp as a 
+#                       repeated column. 
+# ts_zp_sum (summarize) - collapses to one row per region/season/year.
 #                       Used for running mean (step 3).
 # log_mean_zp values are identical between the two - only shape differs
+## ------------------------------------------ ##
 
-# --- Full station-level data with annual mean column attached
+## --- Time series 1 = 1978-1987 ---
+## --- Full station-level data with annual mean column attached ---
 # station-level rows retained 
-# Time series 1 = 1978-1987
-#ts1_zp <- ts1_zp %>%
-#  group_by(region, season, year) %>%
-#  mutate(log_mean_zp = mean(log10_zp, na.rm = TRUE)) %>%
-#  ungroup()
-
-# Time series 2 = 1998-now
-#ts2_zp <- ts2_zp %>%
-#  group_by(region, season, year) %>%
-#  mutate(log_mean_zp = mean(log10_zp, na.rm = TRUE)) %>%
-#  ungroup()
+ts1_zp <- ts1_zp %>%
+  group_by(region, season, year) %>%
+  mutate(
+    log_mean_zp   = mean(log10_zp, na.rm = TRUE),
+    mean_sfc_temp = mean(sfc_temp, na.rm = TRUE),
+    mean_sfc_salt = mean(sfc_salt, na.rm = TRUE),
+    mean_btm_temp = mean(btm_temp, na.rm = TRUE),
+    mean_btm_salt = mean(btm_salt, na.rm = TRUE)
+  ) %>%
+  ungroup()
 
 ## --- Summarize (one row per region/season/year) ---
 # used for running mean
-# Time series 1 = 1978-1987
-ts1_zp_a <- ts1_zp %>%
+ts1_zp_sum <- ts1_zp %>%
   group_by(region, season, year) %>%
-  summarize(log_mean_zp = mean(log10_zp, na.rm = TRUE), .groups = "drop")
+  summarize(log_mean_zp = mean(log10_zp, na.rm = TRUE),
+            mean_sfc_temp = mean(sfc_temp, na.rm = TRUE),
+            mean_sfc_salt = mean(sfc_salt, na.rm = TRUE),
+            mean_btm_temp = mean(btm_temp, na.rm = TRUE),
+            mean_btm_salt = mean(btm_salt, na.rm = TRUE),
+            .groups = "drop" 
+            )
 
-# Time series 2 = 1998-now
-ts2_zp_a <- ts2_zp %>%
+## --- Time series 2 = 1998-now ---
+## --- Full station-level data with annual mean column attached ---
+# station-level rows retained 
+ts2_zp <- ts2_zp %>%
   group_by(region, season, year) %>%
-  summarize(log_mean_zp = mean(log10_zp, na.rm = TRUE), .groups = "drop")
+  mutate(
+    log_mean_zp   = mean(log10_zp, na.rm = TRUE),
+    mean_sfc_temp = mean(sfc_temp, na.rm = TRUE),
+    mean_sfc_salt = mean(sfc_salt, na.rm = TRUE),
+    mean_btm_temp = mean(btm_temp, na.rm = TRUE),
+    mean_btm_salt = mean(btm_salt, na.rm = TRUE)
+  ) %>%
+  ungroup()
 
-# these two plots should look identical
-#ggplot(ts2_zp, aes(x = year, y = log_mean_zp)) +
-#  geom_point() +
-#  facet_grid(season~region) 
+## --- Summarize (one row per region/season/year) ---
+# used for running mean
+ts2_zp_sum <- ts2_zp %>%
+  group_by(region, season, year) %>%
+  summarize(log_mean_zp = mean(log10_zp, na.rm = TRUE),
+            mean_sfc_temp = mean(sfc_temp, na.rm = TRUE),
+            mean_sfc_salt = mean(sfc_salt, na.rm = TRUE),
+            mean_btm_temp = mean(btm_temp, na.rm = TRUE),
+            mean_btm_salt = mean(btm_salt, na.rm = TRUE),
+            .groups = "drop"
+  )
 
-ggplot(ts2_zp_a, aes(x = year, y = log_mean_zp)) +
+## --- plot ---
+ggplot(ts2_zp_sum, aes(x = year, y = log_mean_zp)) +
   geom_point() +
   facet_grid(season~region) 
-
-##NEED TO CHECK
-## --- Summarize environmental conditions (one row per region/season/year) ---
-ts1_env <- ts1_zp %>%
-  group_by(region, season, year) %>%
-  summarize(
-    mean_sfc_temp = mean(sfc_temp, na.rm = TRUE),
-    mean_sfc_salt = mean(sfc_salt, na.rm = TRUE),
-    mean_btm_temp = mean(btm_temp, na.rm = TRUE),
-    mean_btm_salt = mean(btm_salt, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-ts2_env <- ts2_zp %>%
-  group_by(region, season, year) %>%
-  summarize(
-    mean_sfc_temp = mean(sfc_temp, na.rm = TRUE),
-    mean_sfc_salt = mean(sfc_salt, na.rm = TRUE),
-    mean_btm_temp = mean(btm_temp, na.rm = TRUE),
-    mean_btm_salt = mean(btm_salt, na.rm = TRUE),
-    .groups = "drop"
-  )
 
 ## ------------------------------------------ ##
 #    3) 5-Year Running Mean
@@ -205,92 +204,93 @@ ts2_env <- ts2_zp %>%
 # k = 5 
 # run_mean_zp uses all available years up to k (right-aligned, na_rm = TRUE)
 
-# Time series 1 = 1978-1987
-ts1_rm <- ts1_zp_a %>%
+## --- Time series 1 = 1978-1987 ---
+ts1_rm <- ts1_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
   mutate(run_mean_zp = runner::mean_run(log_mean_zp, na_rm = TRUE, k = 5)) %>%
   ungroup()
 
-# Time series 2 = 1998-now
-ts2_rm <- ts2_zp_a %>%
+## --- Time series 2 = 1998-now ---
+ts2_rm <- ts2_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
   mutate(run_mean_zp = runner::mean_run(log_mean_zp, na_rm = TRUE, k = 5)) %>%
   ungroup()
+
+## --- plot ---
+ggplot(ts2_rm, aes(x = year, y = run_mean_zp)) +
+  geom_point() +
+  facet_grid(season~region) 
 
 ## ------------------------------------------ ##
 #    4) Standard Deviation
 ## ------------------------------------------ ##
-
 # SD of annual log-means across each time series 
 # = interannual variability metric for trophic amplification test
 # does variability increase at higher trophic levels?
-#
-# TODO: confirm whether SD should be:
-#   (a) pooled across all regions and seasons (current approach keeps separate)
-#   (b) standardized (e.g., CV) for cross-trophic-level comparison
 
-# Time series 1 = 1978-1987
+## --- Time series 1 = 1978-1987 ---
 ts1_zp <- ts1_zp %>%
   group_by(region, season) %>%
   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
   ungroup()
 
-# Time series 2 = 1998-now
+## --- Time series 2 = 1998-now ---
 ts2_zp <- ts2_zp %>%
   group_by(region, season) %>%
   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
   ungroup()
 
-## ------------------------------------------ ##
-#    5) Final Output Tables           ----
-## ------------------------------------------ ##
-
-# add station-level metadata (temp, salt, lat, lon) to summarized output
-# metadata comes from distinct() = one row per year/season/region 
-# so represents a single station, not a spatial average. CHECK
-
-assemble_final <- function(rm_df, full_df) {
-  distinct_meta <- full_df %>%
-    distinct(region, season, year, .keep_all = TRUE) %>%
-    select(-log_mean_zp)
-
-  rm_df %>%
-    left_join(distinct_meta, by = c("region", "season", "year")) %>%
-    relocate(region, season, year, log_mean_zp, run_mean_zp, sd_zp,
-             log10_zp, volume_1m2, min_nonzero,
-             lat, lon, sfc_temp, sfc_salt, btm_temp, btm_salt)
-}
-
-ts1_final <- assemble_final(ts1_rm, ts1_zp)
-ts2_final <- assemble_final(ts2_rm, ts2_zp)
-
-# both log_mean_zp (annual mean) and run_mean_zp (5-yr running
-# mean) are retained in the output 
-
-# write.csv(ts1_final, "output/trophamp_zp_runmean_NES_1978_1987.csv", row.names = FALSE)
-# write.csv(ts2_final, "output/trophamp_zp_runmean_NES_1998_present.csv", row.names = FALSE)
-
-
-## CHECK IF USING ENV AVERAGE
-## --- Summarize environmental conditions (one row per region/season/year) ---
-assemble_final <- function(rm_df, env_df) {
-  rm_df %>%
-    left_join(env_df, by = c("region", "season", "year")) %>%
-    relocate(region, season, year, log_mean_zp, run_mean_zp, sd_zp,
-             mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt)
-}
-
-ts1_final <- assemble_final(ts1_rm, ts1_env)
-ts2_final <- assemble_final(ts2_rm, ts2_env)
+## --- plot ---
+ggplot(ts2_zp, aes(x = year, y = sd_zp)) +
+  geom_point() +
+  facet_grid(season~region) 
 
 ## ------------------------------------------ ##
-#    Plots                                     ----
+#    Final Output Tables        
+## ------------------------------------------ ##
+# ts_zp     = station-level, has all cruise info + sd_zp
+# ts_rm     = one row per region/season/year, has run_mean_zp
+# 
+# FULL:  all station rows, run_mean_zp joined on
+# SUM:   one row per region/season/year (distinct), run_mean_zp joined on
+
+## --- Time series 1 ---
+ts1_full <- ts1_zp %>%
+  left_join(ts1_rm %>% select(region, season, year, run_mean_zp),
+            by = c("region", "season", "year"))
+
+ts1_sum <- ts1_full %>%
+  distinct(region, season, year, .keep_all = TRUE) %>%
+  select(region, season, year, min_nonzero, log10_zp, log_mean_zp, 
+         mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
+         sd_zp, run_mean_zp
+         )
+
+## --- Time series 2 ---
+ts2_full <- ts2_zp %>%
+  left_join(ts2_rm %>% select(region, season, year, run_mean_zp),
+            by = c("region", "season", "year"))
+
+ts2_sum <- ts2_full %>%
+  distinct(region, season, year, .keep_all = TRUE) %>%
+  select(region, season, year, min_nonzero, log10_zp, log_mean_zp, 
+         mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
+         sd_zp, run_mean_zp
+  )
+
+# write.csv(ts1_full, "output/trophamp_zp_1978_1987_full.csv", row.names = FALSE)
+# write.csv(ts1_sum,  "output/trophamp_zp_1978_1987_sum.csv",  row.names = FALSE)
+# write.csv(ts2_full, "output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
+# write.csv(ts2_sum,  "output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
+
+## ------------------------------------------ ##
+#    Plots                                 
 ## ------------------------------------------ ##
 
 ## --- Annual log means TS2 ---
-ggplot(ts2_zp_a, aes(x = year, y = log_mean_zp)) +
+ggplot(ts2_sum, aes(x = year, y = log_mean_zp)) +
   geom_point() +
   geom_line(data = ts2_rm, aes(x = year, y = run_mean_zp),
             color = "red", linewidth = 1.2) +
@@ -299,18 +299,18 @@ ggplot(ts2_zp_a, aes(x = year, y = log_mean_zp)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12,
                                    color = "black"),
         panel.grid = element_blank()) +
-  labs(title = "Zooplankton Displacement Volume — TS2 (1998–present)",
+  labs(title = "Zooplankton Displacement Volume — TS2 (1998–2023)",
        y = "log10 ZP (mL/m2)", x = NULL)
 
-# Annual log means — TS1
-ggplot(ts1_zp_a, aes(x = year, y = log_mean_zp)) +
-  geom_point() +
-  geom_line(data = ts1_rm, aes(x = year, y = run_mean_zp),
-            color = "red", linewidth = 1.2) +
-  facet_grid(season ~ region) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12,
-                                   color = "black"),
-        panel.grid = element_blank()) +
-  labs(title = "Zooplankton Displacement Volume — TS1 (1978–1987)",
-       y = "log10 ZP (mL/m2)", x = NULL)
+## --- SD TS2 ---
+ggplot(ts2_sum, aes(x = region, y = sd_zp, color = season)) +
+  geom_point(size = 4) +
+  scale_color_brewer(palette = "Set2") +
+  labs(
+    title = "Zooplankton Displacement Volume",
+    subtitle = "Time series 2: 1998–2023",
+    x = "Region",
+    y = "SD of log10 annual mean ZP volume",
+    color = "Season"
+  ) +
+  theme_bw()
