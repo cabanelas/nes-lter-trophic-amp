@@ -1,48 +1,49 @@
 ################################################################################
-## Script:  
+## Script:  trophic_amp_ichthyoplankton.R
 ## Project: NES-LTER Trophic Amplification - ichthyoplankton
 ##          Cross-Site LTER Pelagic Synthesis Working Group 
 ## Data:    EcoMon Plankton Survey 
 ## Author:  Alexandra C. Cabanelas Bermudez
 ## Created: November 2023  |  Updated: March 2026
 ##
-## Purpose: Prepares ichthyoplankton displacement volume data from the NES for 
-##          trophic amplification analysis.        
-##          Produces log-transformed annual means and 5-year running means 
-##          by region and season for two time periods:              
+## Purpose: Prepares ichthyoplankton data from the NES for trophic amplification
+##          analysis. Produces log-transformed annual means and 5-year running 
+##          means by region and season for two time periods:              
 ##          TS1: 1978–1987                           
 ##          TS2: 1998–present (matched to chl-a)     
 ##       1) log10(x+ (min/2))    for each station ; x = sum trophic level 
 ##       2) average across stations for a cruise or year/season
 ##       3) take a running mean with timespan ~ longest lived taxon 
 ##       4) compute st.dev. of time-series 
+##
 ## Inputs (data/raw/):
 ##   - EcoMon_plankton_v3_10.csv  (187513.4.4.tar.gz)
 ## https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0187513
 ## Data available for cruises through 2023 - As of 2024_11_06
 ##
-## Outputs (data/processed/):
+## Outputs (data/output/):
 ##   - 
 ################################################################################
 
 ## ------------------------------------------ ##
 #            Packages
 ## ------------------------------------------ ##
-library(tidyverse)  # v2.0.0
-library(runner)     # running mean; v0.4.3
+library(tidyverse)  
+library(runner)     # running mean
 library(janitor)
 
 ## ------------------------------------------ ##
 #            Data  
 ## ------------------------------------------ ##
 #EcoMon_Plankton_Data_v3_10_wStrataMeta.csv
-ichthyo_full <- read_csv(here::here("raw",
+ichthyo_full <- read_csv(here::here("data", "raw",
                                     "EcoMon_plankton_v3_10.csv")) %>%
   clean_names()
 
 ## ------------------------------------------ ##
 #            Tidy Data  
 ## ------------------------------------------ ##
+
 ## --- Filter regions of interest ---
 # exclude CC and NS [Region 0]
 # rename SNE to MAB to align with phytoplankton time series
