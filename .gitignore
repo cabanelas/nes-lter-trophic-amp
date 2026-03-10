@@ -9,4 +9,4 @@ data/output/*
 !data/raw/README.md
 !data/output/README.md
 
-data/older/
+older/
