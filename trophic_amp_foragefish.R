@@ -22,21 +22,23 @@
 ##
 ## Inputs (data/raw/):
 ##   - 22560_NEFSCFallFisheriesIndependentBottomTrawlData/
-##       22560_UNION_FSCS_SVCAT.csv
-##       22560_UNION_FSCS_SVSTA.csv
+##       22560_UNION_FSCS_SVCAT.csv                 #catch data
+##       22560_UNION_FSCS_SVSTA.csv                 #metadata
 ##       Fall_SVDBS_SupportTables/SVDBS_SVSPECIES_LIST.csv
+##       Fall_SVDBS_SupportTables/SVDBS_SVMSTRATA.csv
 ##   - 22561_NEFSCSpringFisheriesIndependentBottomTrawlData/
 ##       22561_UNION_FSCS_SVCAT.csv
 ##       22561_UNION_FSCS_SVSTA.csv
-##   - correction_factors/NEFSC_conversion_factors.csv   (OceanAdapt/GitHub)
+##   - NEFSC_conversion_factors.csv   (OceanAdapt/GitHub)
 ##  https://github.com/pinskylab/OceanAdapt/blob/master/data_raw/NEFSC_conversion_factors.csv
-##   - correction_factors/bigelow_corrections.csv        (Miller et al. 2010)
-##   - neus_strata.csv
-##  https://github.com/pinskylab/OceanAdapt/blob/master/data_raw/neus_strata.csv
+##   - Miller2010_Bigelow_calibration_factors.csv   (Miller et al. 2010)
+##   - EcomonStrata_v4.shp
+##   - EcomonStrata_v4b.shp
 ##
 ## Outputs (data/processed/):
 ##   - 
 ################################################################################
+### DOUBLE CHECK IF SUMMING ACROSS SPP --- just 1 value???
 
 ## ------------------------------------------ ##
 #            Packages
@@ -84,6 +86,15 @@ spp_codes <- read_csv(here::here("raw",
                                  "SVDBS_SVSPECIES_LIST.csv")) %>%
   clean_names()
 
+## --- region info --- 
+svmstrata <- read_csv(here::here("raw",
+                                 "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
+                                 "Fall_SVDBS_SupportTables",
+                                 "SVDBS_SVMSTRATA.csv")) %>%
+  clean_names() %>%
+  select(stratum, stratum_name) %>%
+  distinct()
+
 ## --- Conversion Factors ---
 # Source: NEFSC_conversion_factors.csv (OceanAdapt GitHub)
 nefsc_cf_full <- read_csv(here::here("raw",
@@ -95,10 +106,6 @@ nefsc_cf_full <- read_csv(here::here("raw",
 bigelow_cf <- read_csv(here::here("raw",
                                   "Miller2010_Bigelow_calibration_factors.csv")) %>%
   clean_names() 
-
-## --- NEUS Strata ---
-nes_strata <- read_csv(here::here("raw",
-                                  "neus_strata.csv"))
 
 ## ------------------------------------------ ##
 #            Species codes
@@ -120,7 +127,7 @@ forage_spp <- spp_codes %>%
     svspp == "121"              ~ "Atlantic mackerel",
     svspp == "131"              ~ "Butterfish",
     svspp %in% c("181", "734")  ~ "Sand lance"
-  )) #### CHECK IF OKAY TO GROUP SAND LANCE
+  )) 
 
 forage_codes <- forage_spp$svspp
 
@@ -128,9 +135,9 @@ forage_codes <- forage_spp$svspp
 #            Conversion Factors
 ## ------------------------------------------ ##
 ## --- DCF / GCF / VCF ---
-# DCF = Door Conversion Factor          applied: year < 1985
-# GCF = General Conversion Factor       applied: spring, year 1973-1981
-# VCF = Vessel Conversion Factor        applied: vessel == "DE" (Delaware II)
+# DCF = Door Conversion Factor       applied: year < 1985
+# GCF = General Conversion Factor    applied: spring, year 1973-1981
+# VCF = Vessel Conversion Factor     applied: vessel == "DE" (Delaware II)
 nefsc_cf <- nefsc_cf_full %>%
   mutate(svspp = as.character(svspp)) %>%
   # only keep species relevant to forage fish
@@ -140,17 +147,15 @@ nefsc_cf <- nefsc_cf_full %>%
 
 ## --- Bigelow / Pisces (rhoW) ---
 # Bigelow (HB) and Pisces (PC) vessel corrections post-2008
-# Applied to: svvessel %in% c("HB", "PC")
 # Season-specific where available; combined estimate where not
 # Atlantic mackerel and N. sand lance only appear in Table 56 (combined seasons)
-# meaning there weren't enough season-specific observations to estimate separate spring/fall factors
+#there weren't enough season-specific observations to estimate separate spring/fall factors
 # Ammodytes dubius has no correction factor in this document
-# svspp 734 not in Miller 2010 - using 181 value as proxy
+# svspp 734 not in Miller 2010; using 181 value as proxy
 
 # Tables 56, 57, 58
-# Columns 5&6 
-# ρ_W = biomass-based, total survey estimate; ratio of the total survey-wide biomass estimate between vessels
-# SE (ρ_W)
+# Columns 5&6
+# ρ_W = ratio of the total survey-wide biomass estimate between vessels
 bigelow_cf <- bigelow_cf %>%
   #mutate(svspp = as.character(svspp)) %>%
   select(svspp, season, rho_w) %>%
@@ -162,11 +167,7 @@ bigelow_cf <- bigelow_cf %>%
 # join catch to haul metadata, filter to forage spp only
 # sum across sexes (catchsex) for same species at same haul
 # one row per haul (id) x species (svspp), with station-level metadata
-# attached and catch summed across sexes.
-
-# We don't need sex-specific catch, so we sum across catchsex within each
-# haul x species combination.
-
+# catch summed across sexes (don't need sex-specific catch)
 # need to add metadata from (SVSTA) to catch df with location, depth, vessel, etc
 
 prep_survey <- function(catch, meta, season_label) {
@@ -314,11 +315,12 @@ fall_df %>%
 ## ------------------------------------------ ##
 #            Assign Regions
 ## ------------------------------------------ ##
+## --- read in EcoMon shapefiles to get region names ---
 ecomap1 <- st_read(here::here("raw", "EcomonStrata_v4.shp"))
 ecomap2 <- st_read(here::here("raw", "EcomonStrata_v4b.shp"))
 
 ecomap <- rbind(ecomap1, ecomap2)
-st_crs(ecomap) <- 4326
+st_crs(ecomap) <- 4326 #set crs
 ecomap_valid <- st_make_valid(ecomap)
 
 # function to assign region to any df with lat/lon columns
@@ -341,9 +343,13 @@ assign_region <- function(df, ecomap_valid) {
 }
 
 fall_df_region   <- assign_region(fall_df,   ecomap_valid) %>%
-  clean_names()
+  clean_names() %>%
+  # add region info from svmstrata
+  left_join(svmstrata, by = "stratum")
 spring_df_region <- assign_region(spring_df, ecomap_valid) %>%
-  clean_names()
+  clean_names() %>%
+  # add region info from svmstrata
+  left_join(svmstrata, by = "stratum")
 
 # check NAs
 sum(is.na(fall_df_region$region))
@@ -353,81 +359,20 @@ sum(is.na(spring_df_region$region))
 table(fall_df_region$region)
 table(spring_df_region$region)
 
-# plot
+fall_df_region %>%
+  count(region, stratum_name) %>%
+  arrange(region, stratum_name) %>%
+  print(n = 50)
+
+## --- plot --- 
 ggplot(fall_df_region, aes(x = lon, 
                            y = lat, color = region)) +
   geom_point(size = 2) +
   coord_fixed() +
   theme_bw() +
   theme(legend.position = "none")
-##
 
-### OR
-# svmstrata <- read_csv(here::here("raw",
-#                                  "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
-#                                  "Fall_SVDBS_SupportTables",
-#                                  "SVDBS_SVMSTRATA.csv")) %>%
-#   clean_names()
-# 
-# ggplot(svmstrata, aes(x = -midlon/100, y = midlat/100, color = stratum_name)) +
-#   geom_point(size = 2) +
-#   coord_fixed() +
-#   theme_bw() +
-#   theme(legend.position = "none")
-# 
-# svm_pts <- svmstrata %>%
-#   mutate(
-#     lon = -midlon / 100,
-#     lat =  midlat / 100
-#   ) %>%
-#   filter(!is.na(lon), !is.na(lat)) %>%
-#   st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
-# 
-# svm_region_lookup <- svm_pts %>%
-#   bind_cols(
-#     ecomap_valid %>%
-#       st_drop_geometry() %>%
-#       slice(st_nearest_feature(svm_pts, ecomap_valid))
-#   ) %>%
-#   st_drop_geometry() %>%
-#   select(stratum, stratum_name, Region) %>%
-#   distinct()
-# 
-# svmstrata_region <- svm_pts %>%
-#   bind_cols(
-#     ecomap_valid %>%
-#       st_drop_geometry() %>%
-#       slice(st_nearest_feature(svm_pts, ecomap_valid))
-#   ) %>%
-#   st_drop_geometry()
-# 
-# ggplot(svmstrata_region, aes(x = lon, y = lat, color = Region)) +
-#   geom_point(size = 2) +
-#   coord_fixed() +
-#   theme_bw() +
-#   theme(legend.position = "none")
-# 
-# fall_df1 <- fall_df %>%
-#   left_join(svm_region_lookup %>% select(stratum, Region), by = "stratum")
-# 
-# ggplot(fall_df1, aes(x = lon, y = lat, color = Region)) +
-#   geom_point(size = 2) +
-#   coord_fixed() +
-#   theme_bw() +
-#   theme(legend.position = "none")
-
-
-
-
-
-
-
-
-# ff <- ff %>%
-#   left_join(strata_lookup %>% select(stratum, region),
-#             by = "stratum") %>%
-#   filter(region %in% c("MAB", "GB", "GOM"))
-
+## --- filter by regions of interest --- 
 fall_df_region <- fall_df_region %>%
   mutate(
     region = case_when(
@@ -435,7 +380,8 @@ fall_df_region <- fall_df_region %>%
       TRUE ~ region
     )
   ) %>%
-  filter(region %in% c("MAB", "GB", "GOM"))
+  filter(region %in% c("MAB", "GB", "GOM")) %>%
+  select(-c(name, numof_poly,numof_sta, area))
 
 spring_df_region <- spring_df_region %>%
   mutate(
@@ -444,7 +390,251 @@ spring_df_region <- spring_df_region %>%
       TRUE ~ region
     )
   ) %>%
-  filter(region %in% c("MAB", "GB", "GOM"))
+  filter(region %in% c("MAB", "GB", "GOM")) %>%
+  select(-c(name, numof_poly,numof_sta, area))
 
 table(fall_df_region$region, useNA = "ifany")
 table(spring_df_region$region, useNA = "ifany")
+
+## ------------------------------------------ ##
+#            Combine & Assign Calendar Season
+## ------------------------------------------ ##
+ff <- bind_rows(fall_df_region, spring_df_region) %>%
+  left_join(forage_spp %>% select(svspp, target_taxa), by = "svspp") %>%
+  mutate(season = case_when(
+    month %in% 3:5   ~ "Spring",
+    month %in% 6:8   ~ "Summer",
+    month %in% 9:11  ~ "Fall",
+    TRUE             ~ "Winter"
+  ))
+
+## ------------------------------------------ ##
+#            Total Forage Fish Abundance
+## ------------------------------------------ ##
+# sum cpue across species within target_taxa per haul
+# sand lance (181 + 734) summed together as one group
+ff <- ff %>%
+  group_by(id, target_taxa, year, month, season, season_survey,
+           lat, lon, depth, stratum, stratum_name, region, svvessel,
+           surftemp, surfsalin, bottemp, botsalin) %>%
+  summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
+
+## --- plot raw ---
+ggplot(ff, aes(x = year, y = wtcpue)) +
+  geom_point(alpha = 0.3) +
+  facet_grid(season ~ target_taxa, scales = "free") +
+  theme_bw() +
+  labs(title = "Raw forage fish CPUE (corrected)")
+
+ggplot() +
+  geom_sf(data = ecomap_valid, aes(fill = Region), 
+          alpha = 0.3, color = "gray40") +
+  borders("world", colour = "gray50", fill = "gray90") +
+  geom_point(data = ff, aes(x = lon, y = lat), 
+             color = "black", alpha = 0.1, size = 2) +
+  coord_sf(xlim = c(-80, -60), ylim = c(30, 50)) +
+  theme_bw() 
+
+## ------------------------------------------ ##
+#    shoul i get 1 value overall for all spp.??
+## ------------------------------------------ ##
+
+## ------------------------------------------ ##
+#    Split into Two Time Series
+## ------------------------------------------ ##
+
+## --- Time series 1 = 1978-1987 ---
+ts1_ff <- ff %>% 
+  filter(between(year, 1978, 1987))
+
+## --- Time series 2 = 1998-now ---
+# matched to chla time series
+ts2_ff <- ff %>% 
+  filter(year >= 1998)
+
+## ------------------------------------------ ##
+#    1) Log Transformation
+## ------------------------------------------ ##
+# log10(x + min_nonzero/2) per region/season/species group
+
+log_transform_ff <- function(df) {
+  df %>%
+    group_by(region, season, target_taxa) %>%
+    mutate(
+      min_nonzero = min(wtcpue[wtcpue > 0], na.rm = TRUE),
+      log10_ff    = log10(wtcpue + min_nonzero / 2)
+    ) %>%
+    ungroup()
+}
+
+ts1_ff <- log_transform_ff(ts1_ff) # TS1: 1978–1987 
+ts2_ff <- log_transform_ff(ts2_ff) # TS2: 1998–present
+
+## --- plot ---
+ggplot(ts2_ff, aes(x = year, y = log10_ff)) +
+  geom_point() +
+  facet_grid(season ~ region + target_taxa, scales = "free") +
+  theme_bw()
+
+## ------------------------------------------ ##
+#    2) Annual Means by Region, Season, Species
+## ------------------------------------------ ##
+# average across stations for a cruise or year/season
+
+# two versions, needed downstream:
+# ts_ff     - station-level, log_mean_ff broadcast as repeated column
+# ts_ff_sum - one row per region/season/year/species, used for running mean
+
+## --- Full station-level data with annual mean column attached ---
+annual_means_ff <- function(df) {
+  df %>%
+    group_by(region, season, year, target_taxa) %>%
+    mutate(
+      log_mean_ff   = mean(log10_ff,  na.rm = TRUE),
+      mean_sfc_temp = mean(surftemp,  na.rm = TRUE),
+      mean_sfc_salt = mean(surfsalin, na.rm = TRUE),
+      mean_btm_temp = mean(bottemp,   na.rm = TRUE),
+      mean_btm_salt = mean(botsalin,  na.rm = TRUE)
+    ) %>%
+    ungroup()
+}
+
+ts1_ff <- annual_means_ff(ts1_ff)
+ts2_ff <- annual_means_ff(ts2_ff)
+
+## --- Summarize (one row per region/season/year) ---
+# used for running mean
+## --- Time series 1 = 1978-1987 ---
+ts1_ff_sum <- ts1_ff %>%
+  group_by(region, season, year, target_taxa) %>%
+  summarize(
+    log_mean_ff   = mean(log_mean_ff,   na.rm = TRUE),
+    mean_sfc_temp = mean(mean_sfc_temp, na.rm = TRUE),
+    mean_sfc_salt = mean(mean_sfc_salt, na.rm = TRUE),
+    mean_btm_temp = mean(mean_btm_temp, na.rm = TRUE),
+    mean_btm_salt = mean(mean_btm_salt, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+## --- Time series 2 = 1998-now ---
+ts2_ff_sum <- ts2_ff %>%
+  group_by(region, season, year, target_taxa) %>%
+  summarize(
+    log_mean_ff   = mean(log_mean_ff,   na.rm = TRUE),
+    mean_sfc_temp = mean(mean_sfc_temp, na.rm = TRUE),
+    mean_sfc_salt = mean(mean_sfc_salt, na.rm = TRUE),
+    mean_btm_temp = mean(mean_btm_temp, na.rm = TRUE),
+    mean_btm_salt = mean(mean_btm_salt, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+## --- plot ---
+ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff)) +
+  geom_point() +
+  facet_grid(season~region + target_taxa) 
+
+## ------------------------------------------ ##
+#    3) 5-Year Running Mean
+## ------------------------------------------ ##
+# take a running mean with timespan ~ longest lived taxon
+# smoothing over life span of organisms 
+# k = 5 
+# run_mean_zp uses all available years up to k (right-aligned, na_rm = TRUE)
+
+## --- Time series 1 = 1978-1987 ---
+ts1_rm_ff <- ts1_ff_sum %>%
+  arrange(region, season, target_taxa, year) %>%
+  group_by(region, season, target_taxa) %>%
+  mutate(run_mean_ff = runner::mean_run(log_mean_ff,
+                                       k      = 5,
+                                       idx    = year,
+                                       na_rm  = TRUE)) %>%
+  ungroup()
+
+## --- Time series 2 = 1998-now ---
+ts2_rm_ff <- ts2_ff_sum %>%
+  arrange(region, season, target_taxa, year) %>%
+  group_by(region, season, target_taxa) %>%
+  mutate(run_mean_ff = runner::mean_run(log_mean_ff,
+                                       k      = 5,
+                                       idx    = year,
+                                       na_rm  = TRUE)) %>%
+  ungroup()
+
+## --- plot ---
+ggplot(ts2_rm_ff, aes(x = year, y = run_mean_ff, color = target_taxa)) +
+  geom_point() +
+  facet_grid(season~region) 
+
+## ------------------------------------------ ##
+#    4) Standard Deviation
+## ------------------------------------------ ##
+# SD of annual log-means across each time series
+# = interannual variability metric for trophic amplification test
+
+## --- Time series 1 = 1978-1987 ---
+ts1_ff <- ts1_ff %>%
+  group_by(region, season, target_taxa) %>%
+  mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
+  ungroup()
+
+## --- Time series 2 = 1998-now ---
+ts2_ff <- ts2_ff %>%
+  group_by(region, season, target_taxa) %>%
+  mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
+  ungroup()
+
+## --- plot ---
+ggplot(ts2_ff, aes(x = year, y = sd_ff, color = target_taxa)) +
+  geom_point() +
+  facet_grid(season~region) 
+
+## ------------------------------------------ ##
+#    5) Final Output Tables
+## ------------------------------------------ ##
+# FULL: all station rows + run_mean_ff joined on
+# SUM:  one row per region/season/year/species
+
+# ts1_ff_full <- ts1_ff %>%
+#   left_join(ts1_rm_ff %>% select(region, season, year, common_group, run_mean_ff),
+#             by = c("region", "season", "year", "common_group"))
+#
+# ts1_ff_sum <- ts1_ff_full %>%
+#   distinct(region, season, year, common_group, .keep_all = TRUE)
+#
+# ts2_ff_full <- ts2_ff %>%
+#   left_join(ts2_rm_ff %>% select(region, season, year, common_group, run_mean_ff),
+#             by = c("region", "season", "year", "common_group"))
+#
+# ts2_ff_sum <- ts2_ff_full %>%
+#   distinct(region, season, year, common_group, .keep_all = TRUE)
+
+# write.csv(ts1_ff_full, "output/trophamp_ff_1978_1987_full.csv",     row.names = FALSE)
+# write.csv(ts1_ff_sum,  "output/trophamp_ff_1978_1987_sum.csv",      row.names = FALSE)
+# write.csv(ts2_ff_full, "output/trophamp_ff_1998_present_full.csv",  row.names = FALSE)
+# write.csv(ts2_ff_sum,  "output/trophamp_ff_1998_present_sum.csv",   row.names = FALSE)
+
+## ------------------------------------------ ##
+#    Plots
+## ------------------------------------------ ##
+
+## --- Annual log means TS2 ---
+# ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff, color = common_group)) +
+#   geom_point() +
+#   geom_line(data = ts2_rm_ff, aes(x = year, y = run_mean_ff),
+#             linewidth = 1.2) +
+#   facet_grid(season ~ region) +
+#   scale_color_brewer(palette = "Set2") +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   labs(title = "Forage Fish - TS2 (1998-present)",
+#        y = "log10 mean CPUE", x = NULL, color = "Species")
+
+## --- SD TS2 ---
+# ggplot(ts2_ff_sum, aes(x = region, y = sd_ff, color = season)) +
+#   geom_point(size = 4, position = position_dodge(width = 0.3)) +
+#   facet_wrap(~ common_group) +
+#   scale_color_brewer(palette = "Set2") +
+#   theme_bw() +
+#   labs(title = "Forage Fish Interannual Variability - TS2 (1998-present)",
+#        x = "Region", y = "SD of log10 annual mean CPUE", color = "Season")
