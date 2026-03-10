@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Ignore contents of data folders
+data/raw/*
+data/output/*
+!data/raw/README.md
+!data/output/README.md
