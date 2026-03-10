@@ -1,5 +1,5 @@
 ################################################################################
-## Script:  
+## Script:  trophic_amp_zooplankton.R
 ## Project: NES-LTER Trophic Amplification - Zooplankton
 ##          Cross-Site LTER Pelagic Synthesis Working Group 
 ## Data:    EcoMon Plankton Survey 
@@ -22,36 +22,28 @@
 ## https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0187513
 ## Data available for cruises through 2023 - As of 2024_11_06
 ##
-## Outputs (data/processed/):
+## Outputs (data/output/):
 ##   - 
 ################################################################################
 
 ## ------------------------------------------ ##
 #            Packages
 ## ------------------------------------------ ##
-library(tidyverse)  # v2.0.0
-library(runner)     # running mean; v0.4.3
+library(tidyverse)  
+library(runner)     # running mean
 library(janitor)
 
 ## ------------------------------------------ ##
 #            Data  
 ## ------------------------------------------ ##
 #EcoMon_Plankton_Data_v3_10_wStrataMeta.csv
-zp_full <- read_csv(here::here("raw",
+zp_full <- read_csv(here::here("data", "raw",
                                "EcoMon_plankton_v3_10.csv")) %>%
   clean_names()
 
 ## ------------------------------------------ ##
 #            Tidy Data  
 ## ------------------------------------------ ##
-## --- Add season column --- 
-#zp <- zp_full %>%
-#  mutate(season = case_when(
-#    between(month_num, 3, 5)  ~ "Spring",
-#    between(month_num, 6, 8)  ~ "Summer",
-#    between(month_num, 9, 11) ~ "Fall",
-#    TRUE                      ~ "Winter"
-#  ))
 
 ## --- Filter regions of interest ---
 # exclude CC and NS [Region 0]
@@ -291,6 +283,11 @@ ts2_sum <- ts2_full %>%
 # write.csv(ts2_full, "output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
 # write.csv(ts2_sum,  "output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
 
+## --- SD ---
+ts2_sd <- ts2_sum %>%
+  distinct(region, season, sd_zp)
+#write.csv(ts2_sd, "output/trophamp_zp_1998_2023_sd.csv", row.names = FALSE)
+
 ## ------------------------------------------ ##
 #    Plots                                 
 ## ------------------------------------------ ##
@@ -320,3 +317,55 @@ ggplot(ts2_sum, aes(x = region, y = sd_zp, color = season)) +
     color = "Season"
   ) +
   theme_bw()
+
+## --- anomaly --- 
+ts2_anom <- ts2_sum %>%
+  group_by(region, season) %>%
+  mutate(zp_anom = log_mean_zp - mean(log_mean_zp, na.rm = TRUE)) %>%
+  ungroup()
+
+ggplot(ts2_anom, aes(year, zp_anom)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_col() +
+  facet_grid(season ~ region) +
+  theme_bw() +
+  labs(y = "Anomaly in log10 annual mean ZP", x = NULL)
+
+ggplot(ts2_anom, aes(x = year, y = zp_anom, color = region)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~season) +
+  theme_bw() +
+  labs(
+    y = "Anomaly in log10 annual mean ZP",
+    x = NULL,
+    color = "Region"
+  )
+
+## --- distribution --- 
+ggplot(ts2_sum, aes(region, log_mean_zp, fill = season)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(y = "log10 annual mean ZP", x = NULL)
+
+## --- 
+ts2_check <- ts2_zp_sum %>%
+  arrange(region, season, year) %>%
+  group_by(region, season) %>%
+  mutate(
+    n_in_window = runner::runner(
+      x = log_mean_zp,
+      k = 5,
+      idx = year,
+      f = \(x) sum(!is.na(x))
+    )
+  ) %>%
+  ungroup()
+
+ggplot(ts2_check, aes(year, n_in_window)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(season ~ region) +
+  theme_bw() +
+  labs(y = "Observations in 5-year window", x = NULL)
