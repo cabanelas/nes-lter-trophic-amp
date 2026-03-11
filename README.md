@@ -24,7 +24,7 @@ The working group is pursuing three interconnected projects:
 
 1. **[Normalized Biomass Size Spectra (NBSS)](https://github.com/cabanelas/nes-lter-zp-sizespectra.git)**
 2. **Trophic Amplification** = *this repository*
-3. **Double Integration Hypothesis**
+3. **[Double Integration Hypothesis](https://github.com/cabanelas/doubleintegration.git)**
 
 This repository contains the **NES-LTER pipeline** for Project 2. Equivalent pipelines for the other projects are maintained in separate repositories.
 
@@ -57,8 +57,8 @@ All trophic levels follow a common processing pipeline:
 | File | Source |
 |---|---|
 | `NEFSC_conversion_factors.csv` | [OceanAdapt GitHub](https://github.com/pinskylab/OceanAdapt/blob/master/data_raw/NEFSC_conversion_factors.csv) |
-| `Miller2010_Bigelow_calibration_factors.csv` | Miller et al. 2010, NEFSC Ref Doc 10-05, Tables 56–58 |
-| `EcomonStrata_v4.shp`, `EcomonStrata_v4b.shp` | NOAA EcoMon strata shapefiles |
+| `Miller2010_Bigelow_calibration_factors.csv` | [Miller et al. 2010](https://repository.library.noaa.gov/view/noaa/3726), NEFSC Ref Doc 10-05, Tables 56–58 |
+| `EcomonStrata_v4.shp`, `EcomonStrata_v4b.shp` | [NOAA EcoMon strata shapefiles](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0187513) |
 
 ---
 
@@ -103,7 +103,7 @@ The NEFSC bottom trawl survey spans multiple vessels and gear configurations. Ca
 | 4 | Bigelow/Pisces calibration (ρ_W) | vessel == HB or PC (post-2008) | divide |
 
 Sources: `NEFSC_conversion_factors.csv` (steps 1–3); Miller et al. 2010 Tables 56–58 (step 4).  
-Season-specific ρ_W values used where available (herring, butterfish); combined estimate used otherwise (mackerel, sand lance). No ρ_W correction applied to *Ammodytes dubius* — no published value.
+Season-specific ρ_W values used where available (herring, butterfish); combined estimate used otherwise (mackerel, sand lance). No ρ_W correction applied to *Ammodytes americanus* — no published value.
 
 ---
 
