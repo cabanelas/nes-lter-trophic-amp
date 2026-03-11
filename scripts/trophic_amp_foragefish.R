@@ -1,8 +1,8 @@
 ################################################################################
-## Script:  
+## Script:  trophic_amp_foragefish.R
 ## Project: NES-LTER Trophic Amplification - Forage Fish
 ##          Cross-Site LTER Pelagic Synthesis Working Group 
-## Data:    NEFSC Bottom Trawl Survey (Fall & Spring)
+## Data:    NOAA NEFSC Bottom Trawl Survey (Fall & Spring)
 ##          https://www.fisheries.noaa.gov/inport/item/22557
 ##          Data Downloaded 09-MAR-2026
 ## Author:  Alexandra C. Cabanelas Bermudez
@@ -35,7 +35,7 @@
 ##   - EcomonStrata_v4.shp
 ##   - EcomonStrata_v4b.shp
 ##
-## Outputs (data/processed/):
+## Outputs (data/output/):
 ##   - 
 ################################################################################
 ### DOUBLE CHECK IF SUMMING ACROSS SPP --- just 1 value???
@@ -43,8 +43,8 @@
 ## ------------------------------------------ ##
 #            Packages
 ## ------------------------------------------ ##
-library(tidyverse)  # v2.0.0
-library(runner)     # running mean; v0.4.3
+library(tidyverse)  
+library(runner)     # running mean
 library(janitor)
 library(data.table)
 library(sf)
@@ -53,41 +53,41 @@ library(sf)
 #            Data  
 ## ------------------------------------------ ##
 ## --- Fall ---
-fall_catch <- read_csv(here::here("raw",
+fall_catch <- read_csv(here::here("data", "raw",
                                   "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
                                   "22560_UNION_FSCS_SVCAT.csv"),
               # read as character to avoid floating point precision loss (id ~ 2e17)
                        col_types = cols(ID = col_character())) %>%
   clean_names()
 
-fall_meta <- read_csv(here::here("raw",
+fall_meta <- read_csv(here::here("data", "raw",
                                  "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
                                  "22560_UNION_FSCS_SVSTA.csv"),
                       col_types = cols(ID = col_character())) %>%
   clean_names()
 
 ## --- Spring ---
-spring_catch <- read_csv(here::here("raw",
+spring_catch <- read_csv(here::here("data", "raw",
                                     "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
                                     "22561_UNION_FSCS_SVCAT.csv"),
                          col_types = cols(ID = col_character())) %>%
   clean_names()
 
-spring_meta <- read_csv(here::here("raw",
+spring_meta <- read_csv(here::here("data", "raw",
                                    "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
                                    "22561_UNION_FSCS_SVSTA.csv"),
                         col_types = cols(ID = col_character())) %>%
   clean_names()
 
 ## --- spp codes --- 
-spp_codes <- read_csv(here::here("raw",
+spp_codes <- read_csv(here::here("data", "raw",
                                  "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
                                  "Fall_SVDBS_SupportTables",
                                  "SVDBS_SVSPECIES_LIST.csv")) %>%
   clean_names()
 
 ## --- region info --- 
-svmstrata <- read_csv(here::here("raw",
+svmstrata <- read_csv(here::here("data", "raw",
                                  "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
                                  "Fall_SVDBS_SupportTables",
                                  "SVDBS_SVMSTRATA.csv")) %>%
@@ -97,13 +97,13 @@ svmstrata <- read_csv(here::here("raw",
 
 ## --- Conversion Factors ---
 # Source: NEFSC_conversion_factors.csv (OceanAdapt GitHub)
-nefsc_cf_full <- read_csv(here::here("raw",
+nefsc_cf_full <- read_csv(here::here("data", "raw",
                                      "NEFSC_conversion_factors.csv")) %>%
   clean_names() 
 
 ## --- Bigelow / Pisces (rhoW) ---
 # Source: Miller et al. 2010, NEFSC Ref Doc 10-05, Tables 56-58
-bigelow_cf <- read_csv(here::here("raw",
+bigelow_cf <- read_csv(here::here("data", "raw",
                                   "Miller2010_Bigelow_calibration_factors.csv")) %>%
   clean_names() 
 
@@ -136,7 +136,7 @@ forage_codes <- forage_spp$svspp
 ## ------------------------------------------ ##
 ## --- DCF / GCF / VCF ---
 # DCF = Door Conversion Factor       applied: year < 1985
-# GCF = General Conversion Factor    applied: spring, year 1973-1981
+# GCF = Gear Conversion Factor       applied: spring, year 1973-1981
 # VCF = Vessel Conversion Factor     applied: vessel == "DE" (Delaware II)
 nefsc_cf <- nefsc_cf_full %>%
   mutate(svspp = as.character(svspp)) %>%
@@ -316,8 +316,8 @@ fall_df %>%
 #            Assign Regions
 ## ------------------------------------------ ##
 ## --- read in EcoMon shapefiles to get region names ---
-ecomap1 <- st_read(here::here("raw", "EcomonStrata_v4.shp"))
-ecomap2 <- st_read(here::here("raw", "EcomonStrata_v4b.shp"))
+ecomap1 <- st_read(here::here("data", "raw", "EcomonStrata_v4.shp"))
+ecomap2 <- st_read(here::here("data", "raw", "EcomonStrata_v4b.shp"))
 
 ecomap <- rbind(ecomap1, ecomap2)
 st_crs(ecomap) <- 4326 #set crs
@@ -413,8 +413,15 @@ ff <- bind_rows(fall_df_region, spring_df_region) %>%
 ## ------------------------------------------ ##
 # sum cpue across species within target_taxa per haul
 # sand lance (181 + 734) summed together as one group
+#ff <- ff %>%
+#  group_by(id, target_taxa, year, month, season, season_survey,
+#           lat, lon, depth, stratum, stratum_name, region, svvessel,
+#           surftemp, surfsalin, bottemp, botsalin) %>%
+#  summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
+
+## --- Sum ALL species into single forage fish index per haul ---     
 ff <- ff %>%
-  group_by(id, target_taxa, year, month, season, season_survey,
+  group_by(id, year, month, season, season_survey,
            lat, lon, depth, stratum, stratum_name, region, svvessel,
            surftemp, surfsalin, bottemp, botsalin) %>%
   summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
@@ -430,14 +437,10 @@ ggplot() +
   geom_sf(data = ecomap_valid, aes(fill = Region), 
           alpha = 0.3, color = "gray40") +
   borders("world", colour = "gray50", fill = "gray90") +
-  geom_point(data = ff, aes(x = lon, y = lat), 
-             color = "black", alpha = 0.1, size = 2) +
+  geom_point(data = ff, aes(x = lon, y = lat, color = region), 
+             alpha = 0.1, size = 2) +
   coord_sf(xlim = c(-80, -60), ylim = c(30, 50)) +
   theme_bw() 
-
-## ------------------------------------------ ##
-#    shoul i get 1 value overall for all spp.??
-## ------------------------------------------ ##
 
 ## ------------------------------------------ ##
 #    Split into Two Time Series
@@ -459,7 +462,7 @@ ts2_ff <- ff %>%
 
 log_transform_ff <- function(df) {
   df %>%
-    group_by(region, season, target_taxa) %>%
+    group_by(region, season) %>% #target_taxa
     mutate(
       min_nonzero = min(wtcpue[wtcpue > 0], na.rm = TRUE),
       log10_ff    = log10(wtcpue + min_nonzero / 2)
@@ -473,7 +476,7 @@ ts2_ff <- log_transform_ff(ts2_ff) # TS2: 1998–present
 ## --- plot ---
 ggplot(ts2_ff, aes(x = year, y = log10_ff)) +
   geom_point() +
-  facet_grid(season ~ region + target_taxa, scales = "free") +
+  facet_grid(season ~ region, scales = "free") +
   theme_bw()
 
 ## ------------------------------------------ ##
@@ -488,7 +491,7 @@ ggplot(ts2_ff, aes(x = year, y = log10_ff)) +
 ## --- Full station-level data with annual mean column attached ---
 annual_means_ff <- function(df) {
   df %>%
-    group_by(region, season, year, target_taxa) %>%
+    group_by(region, season, year) %>% #target_taxa
     mutate(
       log_mean_ff   = mean(log10_ff,  na.rm = TRUE),
       mean_sfc_temp = mean(surftemp,  na.rm = TRUE),
@@ -506,7 +509,7 @@ ts2_ff <- annual_means_ff(ts2_ff)
 # used for running mean
 ## --- Time series 1 = 1978-1987 ---
 ts1_ff_sum <- ts1_ff %>%
-  group_by(region, season, year, target_taxa) %>%
+  group_by(region, season, year) %>% #target_taxa
   summarize(
     log_mean_ff   = mean(log_mean_ff,   na.rm = TRUE),
     mean_sfc_temp = mean(mean_sfc_temp, na.rm = TRUE),
@@ -518,7 +521,7 @@ ts1_ff_sum <- ts1_ff %>%
 
 ## --- Time series 2 = 1998-now ---
 ts2_ff_sum <- ts2_ff %>%
-  group_by(region, season, year, target_taxa) %>%
+  group_by(region, season, year) %>% #target_taxa
   summarize(
     log_mean_ff   = mean(log_mean_ff,   na.rm = TRUE),
     mean_sfc_temp = mean(mean_sfc_temp, na.rm = TRUE),
@@ -543,22 +546,18 @@ ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff)) +
 
 ## --- Time series 1 = 1978-1987 ---
 ts1_rm_ff <- ts1_ff_sum %>%
-  arrange(region, season, target_taxa, year) %>%
-  group_by(region, season, target_taxa) %>%
-  mutate(run_mean_ff = runner::mean_run(log_mean_ff,
-                                       k      = 5,
-                                       idx    = year,
-                                       na_rm  = TRUE)) %>%
+  arrange(region, season, year) %>% #target_taxa
+  group_by(region, season) %>% #target_taxa
+  mutate(run_mean_ff = runner::mean_run(log_mean_ff, k = 5,
+                                        idx = year, na_rm = TRUE)) %>%
   ungroup()
 
 ## --- Time series 2 = 1998-now ---
 ts2_rm_ff <- ts2_ff_sum %>%
-  arrange(region, season, target_taxa, year) %>%
-  group_by(region, season, target_taxa) %>%
-  mutate(run_mean_ff = runner::mean_run(log_mean_ff,
-                                       k      = 5,
-                                       idx    = year,
-                                       na_rm  = TRUE)) %>%
+  arrange(region, season, year) %>% #target_taxa
+  group_by(region, season) %>% #target_taxa
+  mutate(run_mean_ff = runner::mean_run(log_mean_ff, k = 5,
+                                        idx = year, na_rm  = TRUE)) %>%
   ungroup()
 
 ## --- plot ---
@@ -574,13 +573,13 @@ ggplot(ts2_rm_ff, aes(x = year, y = run_mean_ff, color = target_taxa)) +
 
 ## --- Time series 1 = 1978-1987 ---
 ts1_ff <- ts1_ff %>%
-  group_by(region, season, target_taxa) %>%
+  group_by(region, season) %>% #target_taxa
   mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
   ungroup()
 
 ## --- Time series 2 = 1998-now ---
 ts2_ff <- ts2_ff %>%
-  group_by(region, season, target_taxa) %>%
+  group_by(region, season) %>% #target_taxa
   mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
   ungroup()
 
