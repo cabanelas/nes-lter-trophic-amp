@@ -150,7 +150,7 @@ nefsc_cf <- nefsc_cf_full %>%
 # Season-specific where available; combined estimate where not
 # Atlantic mackerel and N. sand lance only appear in Table 56 (combined seasons)
 #there weren't enough season-specific observations to estimate separate spring/fall factors
-# Ammodytes dubius has no correction factor in this document
+# Ammodytes americanus has no correction factor in this document
 # svspp 734 not in Miller 2010; using 181 value as proxy
 
 # Tables 56, 57, 58
@@ -244,10 +244,10 @@ fall_df %>% count(id, svspp) %>% filter(n > 1)
 #   of Miller et al. 2010 (NEFSC Ref Doc 10-05).
 #   Season-specific values used where available (herring, butterfish);
 #   combined season estimate used where not (mackerel, N. sand lance).
-#   svspp 734 (A. dubius) has no published rhoW -- no correction applied.
+#   svspp 734 (A. americanus) has no published rhoW -- no correction applied.
 
-# corrections are species-specific.
-# Values == 1.0 in the correction factor files = no correction needed.
+# corrections are species-specific
+# Values == 1.0 = no correction needed
 
 apply_corrections <- function(df, nefsc_cf, bigelow_cf) {
   # join DCF/GCF/VCF factors onto data by species
@@ -302,7 +302,7 @@ apply_corrections <- function(df, nefsc_cf, bigelow_cf) {
   
   return(df)
 }
-# svspp 734 (A. dubius) has no Bigelow CF - no correction applied
+# svspp 734 (A. americanus) has no Bigelow CF - no correction applied
 fall_df   <- apply_corrections(fall_df,   nefsc_cf, bigelow_cf)
 spring_df <- apply_corrections(spring_df, nefsc_cf, bigelow_cf)
 
