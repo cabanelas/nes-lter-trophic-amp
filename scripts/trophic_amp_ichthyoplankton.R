@@ -323,6 +323,11 @@ ts2_ichthyo_sum <- ts2_ichthyo_full %>%
 # write.csv(ts2_ichthyo_full, "output/trophamp_ichthyo_1998_2023_full.csv", row.names = FALSE)
 # write.csv(ts2_ichthyo_sum,  "output/trophamp_ichthyo_1998_2023_sum.csv",  row.names = FALSE)
 
+## --- SD ---
+ts2_sd <- ts2_ichthyo_sum %>%
+  distinct(region, season, sd_ichthyo)
+#write.csv(ts2_sd, "output/trophamp_ichthyo_1998_2023_sd.csv", row.names = FALSE)
+
 ## ------------------------------------------ ##
 #    Plots                                 
 ## ------------------------------------------ ##
@@ -352,3 +357,55 @@ ggplot(ts2_ichthyo_sum, aes(x = region, y = sd_ichthyo, color = season)) +
     color = "Season"
   ) +
   theme_bw()
+
+## --- anomaly --- 
+ts2_anom <- ts2_ichthyo_sum %>%
+  group_by(region, season) %>%
+  mutate(ichthyo_anom = log_mean_ichthyo - mean(log_mean_ichthyo, na.rm = TRUE)) %>%
+  ungroup()
+
+ggplot(ts2_anom, aes(year, ichthyo_anom)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_col() +
+  facet_grid(season ~ region) +
+  theme_bw() +
+  labs(y = "Anomaly in log10 annual mean ichthyo", x = NULL)
+
+ggplot(ts2_anom, aes(x = year, y = ichthyo_anom, color = region)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~season) +
+  theme_bw() +
+  labs(
+    y = "Anomaly in log10 annual mean ichthyo",
+    x = NULL,
+    color = "Region"
+  )
+
+## --- distribution --- 
+ggplot(ts2_ichthyo_sum, aes(region, log_mean_ichthyo, fill = season)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(y = "log10 annual mean ichthyo", x = NULL)
+
+## --- 
+ts2_check <- ts2_ichthyo_sum %>%
+  arrange(region, season, year) %>%
+  group_by(region, season) %>%
+  mutate(
+    n_in_window = runner::runner(
+      x = log_mean_ichthyo,
+      k = 5,
+      idx = year,
+      f = \(x) sum(!is.na(x))
+    )
+  ) %>%
+  ungroup()
+
+ggplot(ts2_check, aes(year, n_in_window)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(season ~ region) +
+  theme_bw() +
+  labs(y = "Observations in 5-year window", x = NULL)
