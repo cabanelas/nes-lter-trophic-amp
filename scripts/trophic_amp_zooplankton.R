@@ -89,9 +89,9 @@ ggplot(zp, aes(x = year, y = volume_1m2)) +
 #    Split into Two Time Series
 ## ------------------------------------------ ##
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_zp <- zp %>%
-  filter(between(year, 1978, 1987)) #starts 1977
+  filter(between(year, 1977, 1987))
 
 ## --- Time series 2 = 1998-now ---
 # matched to chla time series
@@ -99,6 +99,7 @@ ts2_zp <- zp %>%
   filter(year >= 1998)
 
 rm(zp, zp_full)
+
 ## ------------------------------------------ ##
 #    1) Log Transformation
 ## ------------------------------------------ ##
@@ -114,7 +115,7 @@ log_transform <- function(df) {
     ungroup()
 }
 
-ts1_zp <- log_transform(ts1_zp) # TS1: 1978–1987 
+ts1_zp <- log_transform(ts1_zp) # TS1: 1977–1987 
 ts2_zp <- log_transform(ts2_zp) # TS2: 1998–present
 
 ## --- plot ---
@@ -135,7 +136,7 @@ ggplot(ts2_zp, aes(x = year, y = log10_zp)) +
 # log_mean_zp values are identical between the two - only shape differs
 ## ------------------------------------------ ##
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ## --- Full station-level data with annual mean column attached ---
 # station-level rows retained 
 ts1_zp <- ts1_zp %>%
@@ -200,12 +201,12 @@ ggplot(ts2_zp_sum, aes(x = year, y = log_mean_zp)) +
 # k = 5 
 # run_mean_zp uses all available years up to k (right-aligned, na_rm = TRUE)
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_rm <- ts1_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
   mutate(run_mean_zp = runner::mean_run(log_mean_zp, k = 5, 
-                                        idx = year, na_rm = TRUE)) %>%
+                                        idx = year, na_rm = TRUE)) %>% #align=center???
   ungroup()
 
 ## --- Time series 2 = 1998-now ---
@@ -213,7 +214,7 @@ ts2_rm <- ts2_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
   mutate(run_mean_zp = runner::mean_run(log_mean_zp, k = 5, 
-                                        idx = year, na_rm = TRUE)) %>%
+                                        idx = year, na_rm = TRUE)) %>% #align=center???
   ungroup()
 
 ## --- plot ---
@@ -224,24 +225,33 @@ ggplot(ts2_rm, aes(x = year, y = run_mean_zp)) +
 ## ------------------------------------------ ##
 #    4) Standard Deviation
 ## ------------------------------------------ ##
-# SD of annual log-means across each time series 
+# SD of 5-yr running means across each time series
 # = interannual variability metric for trophic amplification test
 # does variability increase at higher trophic levels?
 
-## --- Time series 1 = 1978-1987 ---
-ts1_zp <- ts1_zp %>%
+## --- Time series 1 = 1977-1987 ---
+ts1_sd <- ts1_rm %>%
   group_by(region, season) %>%
-  mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
-  ungroup()
+  summarize(sd_zp = sd(run_mean_zp, na.rm = TRUE),
+            .groups = "drop")
+
+# ts1_zp <- ts1_zp %>%
+#   group_by(region, season) %>%
+#   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
+#   ungroup()
 
 ## --- Time series 2 = 1998-now ---
-ts2_zp <- ts2_zp %>%
+ts2_sd <- ts2_rm %>%
   group_by(region, season) %>%
-  mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
-  ungroup()
+  summarize(sd_zp = sd(run_mean_zp, na.rm = TRUE),
+            .groups = "drop")
+# ts2_zp <- ts2_zp %>%
+#   group_by(region, season) %>%
+#   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
+#   ungroup()
 
 ## --- plot ---
-ggplot(ts2_zp, aes(x = year, y = sd_zp)) +
+ggplot(ts2_sd, aes(x = year, y = sd_zp)) +
   geom_point() +
   facet_grid(season~region) 
 
@@ -278,15 +288,15 @@ ts2_sum <- ts2_full %>%
          sd_zp, run_mean_zp
   )
 
-# write.csv(ts1_full, "output/trophamp_zp_1978_1987_full.csv", row.names = FALSE)
-# write.csv(ts1_sum,  "output/trophamp_zp_1978_1987_sum.csv",  row.names = FALSE)
-# write.csv(ts2_full, "output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
-# write.csv(ts2_sum,  "output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
+#write.csv(ts1_full, "data/output/trophamp_zp_1977_1987_full.csv", row.names = FALSE)
+#write.csv(ts1_sum,  "data/output/trophamp_zp_1977_1987_sum.csv",  row.names = FALSE)
+#write.csv(ts2_full, "data/output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
+#write.csv(ts2_sum,  "data/output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
 
 ## --- SD ---
 ts2_sd <- ts2_sum %>%
   distinct(region, season, sd_zp)
-#write.csv(ts2_sd, "output/trophamp_zp_1998_2023_sd.csv", row.names = FALSE)
+#write.csv(ts2_sd, "data/output/trophamp_zp_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
 #    Plots                                 
