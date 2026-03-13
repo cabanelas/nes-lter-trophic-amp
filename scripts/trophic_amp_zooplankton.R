@@ -10,7 +10,7 @@
 ##          trophic amplification analysis.        
 ##          Produces log-transformed annual means and 5-year running means 
 ##          by region and season for two time periods:              
-##          TS1: 1978–1987                           
+##          TS1: 1977–1987                           
 ##          TS2: 1998–present (matched to chl-a)     
 ##       1) log10(x+ (min/2))    for each station ; x = sum trophic level 
 ##       2) average across stations for a cruise or year/season
@@ -103,6 +103,7 @@ rm(zp, zp_full)
 ## ------------------------------------------ ##
 #    1) Log Transformation
 ## ------------------------------------------ ##
+# log10(x + min_nonzero/2) per region/season/species group
 # find the minimum non-zero value for each region and season
 
 log_transform <- function(df) {

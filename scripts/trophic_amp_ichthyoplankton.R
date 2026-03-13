@@ -9,7 +9,7 @@
 ## Purpose: Prepares ichthyoplankton data from the NES for trophic amplification
 ##          analysis. Produces log-transformed annual means and 5-year running 
 ##          means by region and season for two time periods:              
-##          TS1: 1978–1987                           
+##          TS1: 1977–1987                           
 ##          TS2: 1998–present (matched to chl-a)     
 ##       1) log10(x+ (min/2))    for each station ; x = sum trophic level 
 ##       2) average across stations for a cruise or year/season

@@ -12,7 +12,7 @@
 ##          survey for trophic amplification analysis.        
 ##          Applies vessel/gear correction factors and produces log-transformed
 ##          annual means and 5-year running means by region and season.              
-##          TS1: 1978–1987                           
+##          TS1: 1977–1987                           
 ##          TS2: 1998–present (matched to chl-a) 
 ##       1) Apply vessel/gear corrections (DCF, GCF, VCF, Bigelow rhoW)
 ##       2) log10(x + (min/2)) for each station; x = summed forage fish CPUE
@@ -38,7 +38,6 @@
 ## Outputs (data/output/):
 ##   - 
 ################################################################################
-### DOUBLE CHECK IF SUMMING ACROSS SPP --- just 1 value???
 
 ## ------------------------------------------ ##
 #            Packages
@@ -206,7 +205,7 @@ prep_survey <- function(catch, meta, season_label) {
 fall_df   <- prep_survey(fall_catch,   fall_meta,   "Fall")
 spring_df <- prep_survey(spring_catch, spring_meta, "Spring")
 
-# verify: should have 4-5 species per survey, no duplicate haul x svspp rows
+# verify: no duplicate haul x svspp rows
 fall_df %>% count(svspp)
 fall_df %>% count(id, svspp) %>% filter(n > 1)
 
@@ -411,13 +410,7 @@ ff <- bind_rows(fall_df_region, spring_df_region) %>%
 ## ------------------------------------------ ##
 #            Total Forage Fish Abundance
 ## ------------------------------------------ ##
-# sum cpue across species within target_taxa per haul
-# sand lance (181 + 734) summed together as one group
-#ff <- ff %>%
-#  group_by(id, target_taxa, year, month, season, season_survey,
-#           lat, lon, depth, stratum, stratum_name, region, svvessel,
-#           surftemp, surfsalin, bottemp, botsalin) %>%
-#  summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
+# sum cpue across species per haul
 
 ## --- Sum ALL species into single forage fish index per haul ---     
 ff <- ff %>%
@@ -429,7 +422,7 @@ ff <- ff %>%
 ## --- plot raw ---
 ggplot(ff, aes(x = year, y = wtcpue)) +
   geom_point(alpha = 0.3) +
-  facet_grid(season ~ target_taxa, scales = "free") +
+  facet_wrap(~season, scales = "free") +
   theme_bw() +
   labs(title = "Raw forage fish CPUE (corrected)")
 
@@ -446,14 +439,14 @@ ggplot() +
 #    Split into Two Time Series
 ## ------------------------------------------ ##
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_ff <- ff %>% 
-  filter(between(year, 1978, 1987))
+  filter(between(year, 1977, 1987))
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 # matched to chla time series
 ts2_ff <- ff %>% 
-  filter(year >= 1998)
+  filter(between(year, 1998, 2023))#filter(year >= 1998)
 
 ## ------------------------------------------ ##
 #    1) Log Transformation
@@ -462,7 +455,7 @@ ts2_ff <- ff %>%
 
 log_transform_ff <- function(df) {
   df %>%
-    group_by(region, season) %>% #target_taxa
+    group_by(region, season) %>% 
     mutate(
       min_nonzero = min(wtcpue[wtcpue > 0], na.rm = TRUE),
       log10_ff    = log10(wtcpue + min_nonzero / 2)
@@ -470,8 +463,8 @@ log_transform_ff <- function(df) {
     ungroup()
 }
 
-ts1_ff <- log_transform_ff(ts1_ff) # TS1: 1978–1987 
-ts2_ff <- log_transform_ff(ts2_ff) # TS2: 1998–present
+ts1_ff <- log_transform_ff(ts1_ff) # TS1: 1977–1987 
+ts2_ff <- log_transform_ff(ts2_ff) # TS2: 1998–2023
 
 ## --- plot ---
 ggplot(ts2_ff, aes(x = year, y = log10_ff)) +
@@ -491,7 +484,7 @@ ggplot(ts2_ff, aes(x = year, y = log10_ff)) +
 ## --- Full station-level data with annual mean column attached ---
 annual_means_ff <- function(df) {
   df %>%
-    group_by(region, season, year) %>% #target_taxa
+    group_by(region, season, year) %>% 
     mutate(
       log_mean_ff   = mean(log10_ff,  na.rm = TRUE),
       mean_sfc_temp = mean(surftemp,  na.rm = TRUE),
@@ -502,14 +495,14 @@ annual_means_ff <- function(df) {
     ungroup()
 }
 
-ts1_ff <- annual_means_ff(ts1_ff)
-ts2_ff <- annual_means_ff(ts2_ff)
+ts1_ff <- annual_means_ff(ts1_ff) # TS1: 1977–1987 
+ts2_ff <- annual_means_ff(ts2_ff) # TS2: 1998–2023
 
 ## --- Summarize (one row per region/season/year) ---
 # used for running mean
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_ff_sum <- ts1_ff %>%
-  group_by(region, season, year) %>% #target_taxa
+  group_by(region, season, year) %>% 
   summarize(
     log_mean_ff   = mean(log_mean_ff,   na.rm = TRUE),
     mean_sfc_temp = mean(mean_sfc_temp, na.rm = TRUE),
@@ -519,9 +512,9 @@ ts1_ff_sum <- ts1_ff %>%
     .groups = "drop"
   )
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 ts2_ff_sum <- ts2_ff %>%
-  group_by(region, season, year) %>% #target_taxa
+  group_by(region, season, year) %>% 
   summarize(
     log_mean_ff   = mean(log_mean_ff,   na.rm = TRUE),
     mean_sfc_temp = mean(mean_sfc_temp, na.rm = TRUE),
@@ -534,7 +527,7 @@ ts2_ff_sum <- ts2_ff %>%
 ## --- plot ---
 ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff)) +
   geom_point() +
-  facet_grid(season~region + target_taxa) 
+  facet_grid(season~region) 
 
 ## ------------------------------------------ ##
 #    3) 5-Year Running Mean
@@ -544,47 +537,56 @@ ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff)) +
 # k = 5 
 # run_mean_zp uses all available years up to k (right-aligned, na_rm = TRUE)
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_rm_ff <- ts1_ff_sum %>%
-  arrange(region, season, year) %>% #target_taxa
-  group_by(region, season) %>% #target_taxa
+  arrange(region, season, year) %>% 
+  group_by(region, season) %>% 
   mutate(run_mean_ff = runner::mean_run(log_mean_ff, k = 5,
                                         idx = year, na_rm = TRUE)) %>%
   ungroup()
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 ts2_rm_ff <- ts2_ff_sum %>%
-  arrange(region, season, year) %>% #target_taxa
-  group_by(region, season) %>% #target_taxa
+  arrange(region, season, year) %>% 
+  group_by(region, season) %>% 
   mutate(run_mean_ff = runner::mean_run(log_mean_ff, k = 5,
                                         idx = year, na_rm  = TRUE)) %>%
   ungroup()
 
 ## --- plot ---
-ggplot(ts2_rm_ff, aes(x = year, y = run_mean_ff, color = target_taxa)) +
+ggplot(ts2_rm_ff, aes(x = year, y = run_mean_ff)) +
   geom_point() +
   facet_grid(season~region) 
 
 ## ------------------------------------------ ##
 #    4) Standard Deviation
 ## ------------------------------------------ ##
-# SD of annual log-means across each time series
+# SD of 5-yr running means across each time series
 # = interannual variability metric for trophic amplification test
+# does variability increase at higher trophic levels?
 
-## --- Time series 1 = 1978-1987 ---
-ts1_ff <- ts1_ff %>%
-  group_by(region, season) %>% #target_taxa
-  mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
-  ungroup()
+## --- Time series 1 = 1977-1987 ---
+ts1_sd <- ts1_rm_ff %>%
+  group_by(region, season) %>%
+  summarize(sd_ff = sd(run_mean_ff, na.rm = TRUE),
+            .groups = "drop")
+# ts1_ff <- ts1_ff %>%
+#   group_by(region, season) %>% 
+#   mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
+#   ungroup()
 
-## --- Time series 2 = 1998-now ---
-ts2_ff <- ts2_ff %>%
-  group_by(region, season) %>% #target_taxa
-  mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
-  ungroup()
+## --- Time series 2 = 1998-2023 ---
+ts2_sd <- ts2_rm_ff %>%
+  group_by(region, season) %>%
+  summarize(sd_ff = sd(run_mean_ff, na.rm = TRUE),
+            .groups = "drop")
+# ts2_ff <- ts2_ff %>%
+#   group_by(region, season) %>% 
+#   mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
+#   ungroup()
 
 ## --- plot ---
-ggplot(ts2_ff, aes(x = year, y = sd_ff, color = target_taxa)) +
+ggplot(ts2_sd, aes(x = season, y = sd_ff)) +
   geom_point() +
   facet_grid(season~region) 
 
@@ -594,46 +596,109 @@ ggplot(ts2_ff, aes(x = year, y = sd_ff, color = target_taxa)) +
 # FULL: all station rows + run_mean_ff joined on
 # SUM:  one row per region/season/year/species
 
-# ts1_ff_full <- ts1_ff %>%
-#   left_join(ts1_rm_ff %>% select(region, season, year, common_group, run_mean_ff),
-#             by = c("region", "season", "year", "common_group"))
-#
-# ts1_ff_sum <- ts1_ff_full %>%
-#   distinct(region, season, year, common_group, .keep_all = TRUE)
-#
-# ts2_ff_full <- ts2_ff %>%
-#   left_join(ts2_rm_ff %>% select(region, season, year, common_group, run_mean_ff),
-#             by = c("region", "season", "year", "common_group"))
-#
-# ts2_ff_sum <- ts2_ff_full %>%
-#   distinct(region, season, year, common_group, .keep_all = TRUE)
+## --- Time series 1 --
+ts1_ff_full <- ts1_ff %>%
+  left_join(ts1_rm_ff %>% select(region, season, year, run_mean_ff),
+            by = c("region", "season", "year")) %>%
+  left_join(ts1_sd, by = c("region", "season"))
 
-# write.csv(ts1_ff_full, "output/trophamp_ff_1978_1987_full.csv",     row.names = FALSE)
-# write.csv(ts1_ff_sum,  "output/trophamp_ff_1978_1987_sum.csv",      row.names = FALSE)
-# write.csv(ts2_ff_full, "output/trophamp_ff_1998_present_full.csv",  row.names = FALSE)
-# write.csv(ts2_ff_sum,  "output/trophamp_ff_1998_present_sum.csv",   row.names = FALSE)
+ts1_ff_sum <- ts1_ff_full %>%
+  distinct(region, season, year, .keep_all = TRUE) %>%
+  select(region, season, year, min_nonzero, log10_ff, log_mean_ff,
+         mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt,
+         sd_ff, run_mean_ff)
+
+## --- Time series 2 ---
+ts2_ff_full <- ts2_ff %>%
+  left_join(ts2_rm_ff %>% select(region, season, year, run_mean_ff),
+            by = c("region", "season", "year")) %>%
+  left_join(ts2_sd, by = c("region", "season"))
+
+ts2_ff_sum <- ts2_ff_full %>%
+  distinct(region, season, year, .keep_all = TRUE) %>%
+  select(region, season, year, min_nonzero, log10_ff, log_mean_ff,
+         mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt,
+         sd_ff, run_mean_ff)
+
+#write.csv(ts1_ff_full, "data/output/trophamp_ff_1977_1987_full.csv",   row.names = FALSE)
+#write.csv(ts1_ff_sum,  "data/output/trophamp_ff_1977_1987_sum.csv",    row.names = FALSE)
+#write.csv(ts2_ff_full, "data/output/trophamp_ff_1998_2023_full.csv",row.names = FALSE)
+#write.csv(ts2_ff_sum,  "data/output/trophamp_ff_1998_2023_sum.csv", row.names = FALSE)
+
+#write.csv(ts2_sd, "data/output/trophamp_ff_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
 #    Plots
 ## ------------------------------------------ ##
 
 ## --- Annual log means TS2 ---
-# ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff, color = common_group)) +
-#   geom_point() +
-#   geom_line(data = ts2_rm_ff, aes(x = year, y = run_mean_ff),
-#             linewidth = 1.2) +
-#   facet_grid(season ~ region) +
-#   scale_color_brewer(palette = "Set2") +
-#   theme_bw() +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-#   labs(title = "Forage Fish - TS2 (1998-present)",
-#        y = "log10 mean CPUE", x = NULL, color = "Species")
+ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff)) +
+  geom_point() +
+  geom_line(data = ts2_rm_ff, aes(x = year, y = run_mean_ff),
+            linewidth = 1.2) +
+  facet_grid(season ~ region) +
+  scale_color_brewer(palette = "Set2") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Forage Fish - TS2 (1998-present)",
+       y = "log10 mean CPUE", x = NULL)
 
 ## --- SD TS2 ---
-# ggplot(ts2_ff_sum, aes(x = region, y = sd_ff, color = season)) +
-#   geom_point(size = 4, position = position_dodge(width = 0.3)) +
-#   facet_wrap(~ common_group) +
-#   scale_color_brewer(palette = "Set2") +
-#   theme_bw() +
-#   labs(title = "Forage Fish Interannual Variability - TS2 (1998-present)",
-#        x = "Region", y = "SD of log10 annual mean CPUE", color = "Season")
+ggplot(ts2_ff_sum, aes(x = region, y = sd_ff, color = season)) +
+  geom_point(size = 4, position = position_dodge(width = 0.3)) +
+  scale_color_brewer(palette = "Set2") +
+  theme_bw() +
+  labs(title = "Forage Fish Interannual Variability - TS2 (1998-present)",
+       x = "Region", y = "SD of log10 annual mean CPUE", color = "Season")
+
+## --- anomaly --- 
+ts2_anom <- ts2_ff_sum %>%
+  group_by(region, season) %>%
+  mutate(ff_anom = log_mean_ff - mean(log_mean_ff, na.rm = TRUE)) %>%
+  ungroup()
+
+ggplot(ts2_anom, aes(year, ff_anom)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_col() +
+  facet_grid(season ~ region) +
+  theme_bw() +
+  labs(y = "Anomaly in log10 annual mean FF", x = NULL)
+
+ggplot(ts2_anom, aes(x = year, y = ff_anom, color = region)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~season) +
+  theme_bw() +
+  labs(
+    y = "Anomaly in log10 annual mean FF",
+    x = NULL,
+    color = "Region"
+  )
+
+## --- distribution --- 
+ggplot(ts2_ff_sum, aes(region, log_mean_ff, fill = season)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(y = "log10 annual mean FF", x = NULL)
+
+## --- 
+ts2_check <- ts2_ff_sum %>%
+  arrange(region, season, year) %>%
+  group_by(region, season) %>%
+  mutate(
+    n_in_window = runner::runner(
+      x = log_mean_ff,
+      k = 5,
+      idx = year,
+      f = \(x) sum(!is.na(x))
+    )
+  ) %>%
+  ungroup()
+
+ggplot(ts2_check, aes(year, n_in_window)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(season ~ region) +
+  theme_bw() +
+  labs(y = "Observations in 5-year window", x = NULL)
