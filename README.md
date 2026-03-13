@@ -113,8 +113,13 @@ Season-specific ρ_W values used where available (herring, butterfish); combined
 1. Clone this repository
 2. Place all raw data files in `raw/` (see Data Sources above)
 3. Open R and set your working directory to the project root, or open the `.Rproj` file
-4. Run scripts (can be run in any order):
+4. Restore the package environment (see [Dependencies](#dependencies)):
+```r
+install.packages("renv")
+renv::restore()
+```
 
+5. Run scripts (can be run in any order):
 ```r
 source("scripts/trophic_amp_zooplankton.R")
 source("scripts/trophic_amp_ichthyoplankton.R")
