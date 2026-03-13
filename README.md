@@ -50,7 +50,8 @@ All trophic levels follow a common processing pipeline:
 | Ichthyoplankton | Larval abundance (ind. 10 m<sup>-2</sup>) | NOAA EcoMon Plankton Survey | [NCEI: 0187513](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0187513) |
 | Forage fish | Biomass CPUE (kg tow<sup>-1</sup>) | NOAA NEFSC Bottom Trawl Survey | [InPort: 22560 (Fall)](https://inport.nmfs.noaa.gov/inport/item/22560), [22561 (Spring)](https://inport.nmfs.noaa.gov/inport/item/22561) |
 
-**Ichthyoplankton and Forage fish species included:** Atlantic herring (*Clupea harengus*), Atlantic mackerel (*Scomber scombrus*), Atlantic butterfish (*Peprilus spp.*), sand lance (2 *Ammodytes* spp.)
+**Ichthyoplankton and Forage fish species included:** Atlantic herring (*Clupea harengus*), Atlantic mackerel (*Scomber scombrus*), Atlantic butterfish (*Peprilus spp.*), sand lance (2 *Ammodytes* spp.)  
+*EcoMon data downloaded October 2025; cruises available through 2023. NEFSC trawl data downloaded March 2026.*  
 
 **Auxiliary files:**
 
@@ -115,9 +116,9 @@ Season-specific ρ_W values used where available (herring, butterfish); combined
 4. Run scripts (can be run in any order):
 
 ```r
-source("R/trophic_amp_zooplankton.R")
-source("R/trophic_amp_ichthyoplankton.R")
-source("R/trophic_amp_foragefish.R")
+source("scripts/trophic_amp_zooplankton.R")
+source("scripts/trophic_amp_ichthyoplankton.R")
+source("scripts/trophic_amp_foragefish.R")
 ```
 
 ---
@@ -140,7 +141,7 @@ Log-transformed values are averaged across all stations within a region × seaso
 A right-aligned, index-aware running mean (k = 5) is applied using `runner::mean_run()`. The window uses all available years up to k, so early years in a time series receive shorter windows rather than being dropped.
 
 ### Standard deviation
-SD is computed across the full annual log-mean time series within each region × season group. This is the primary metric for the trophic amplification test: if variability increases at higher trophic levels, SD should be larger for forage fish than for phytoplankton.
+SD is computed across the running means within each region × season group. This is the primary metric for the trophic amplification test: if variability increases at higher trophic levels, SD should be larger for forage fish than for phytoplankton.
 
 ---
 
