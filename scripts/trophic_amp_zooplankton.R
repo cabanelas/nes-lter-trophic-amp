@@ -234,7 +234,6 @@ ts1_sd <- ts1_rm %>%
   group_by(region, season) %>%
   summarize(sd_zp = sd(run_mean_zp, na.rm = TRUE),
             .groups = "drop")
-
 # ts1_zp <- ts1_zp %>%
 #   group_by(region, season) %>%
 #   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
@@ -251,7 +250,7 @@ ts2_sd <- ts2_rm %>%
 #   ungroup()
 
 ## --- plot ---
-ggplot(ts2_sd, aes(x = year, y = sd_zp)) +
+ggplot(ts2_sd, aes(x = season, y = sd_zp)) +
   geom_point() +
   facet_grid(season~region) 
 
@@ -267,35 +266,32 @@ ggplot(ts2_sd, aes(x = year, y = sd_zp)) +
 ## --- Time series 1 ---
 ts1_full <- ts1_zp %>%
   left_join(ts1_rm %>% select(region, season, year, run_mean_zp),
-            by = c("region", "season", "year"))
+            by = c("region", "season", "year")) %>%
+  left_join(ts1_sd, by = c("region", "season"))
 
 ts1_sum <- ts1_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
   select(region, season, year, min_nonzero, log10_zp, log_mean_zp, 
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
-         sd_zp, run_mean_zp
-         )
+         sd_zp, run_mean_zp)
 
 ## --- Time series 2 ---
 ts2_full <- ts2_zp %>%
   left_join(ts2_rm %>% select(region, season, year, run_mean_zp),
-            by = c("region", "season", "year"))
+            by = c("region", "season", "year")) %>%
+  left_join(ts2_sd, by = c("region", "season"))
 
 ts2_sum <- ts2_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
   select(region, season, year, min_nonzero, log10_zp, log_mean_zp, 
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
-         sd_zp, run_mean_zp
-  )
+         sd_zp, run_mean_zp)
 
 #write.csv(ts1_full, "data/output/trophamp_zp_1977_1987_full.csv", row.names = FALSE)
 #write.csv(ts1_sum,  "data/output/trophamp_zp_1977_1987_sum.csv",  row.names = FALSE)
 #write.csv(ts2_full, "data/output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
 #write.csv(ts2_sum,  "data/output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
 
-## --- SD ---
-ts2_sd <- ts2_sum %>%
-  distinct(region, season, sd_zp)
 #write.csv(ts2_sd, "data/output/trophamp_zp_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
@@ -322,8 +318,7 @@ ggplot(ts2_sum, aes(x = region, y = sd_zp, color = season)) +
   labs(
     title = "Zooplankton Displacement Volume",
     subtitle = "Time series 2: 1998–2023",
-    x = "Region",
-    y = "SD of log10 annual mean ZP volume",
+    y = "SD of log10 running mean ZP volume",
     color = "Season"
   ) +
   theme_bw()

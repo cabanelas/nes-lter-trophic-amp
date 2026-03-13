@@ -102,6 +102,7 @@ ichthyo <- ichthyo %>%
   distinct(cruise_name, station, region, date, .keep_all = TRUE)
 
 rm(ichthyo_full)
+
 ## ------------------------------------------ ##
 #            Total ichthyo Abundance -----
 ## ------------------------------------------ ##
@@ -128,9 +129,9 @@ ggplot(ichthyo, aes(x = year, y = ichthyosum)) +
 #    Split into Two Time Series
 ## ------------------------------------------ ##
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_ichthyo <- ichthyo %>%
-  filter(between(year, 1978, 1987)) #starts 1977
+  filter(between(year, 1977, 1987)) #starts 1977
 
 ## --- Time series 2 = 1998-now ---
 # matched to chla time series
@@ -152,7 +153,7 @@ log_transform <- function(df) {
     ungroup()
 }
 
-ts1_ichthyo <- log_transform(ts1_ichthyo) # TS1: 1978–1987 
+ts1_ichthyo <- log_transform(ts1_ichthyo) # TS1: 1977–1987 
 ts2_ichthyo <- log_transform(ts2_ichthyo) # TS2: 1998–present
 
 ## --- plot ---
@@ -173,7 +174,7 @@ ggplot(ts2_ichthyo, aes(x = year, y = log10_ichthyo)) +
 # log_mean_ichthyo values are identical between the two - only shape differs
 ## ------------------------------------------ ##
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ## --- Full station-level data with annual mean column attached ---
 # station-level rows retained 
 ts1_ichthyo <- ts1_ichthyo %>%
@@ -240,7 +241,7 @@ ggplot(ts2_ichthyo_sum, aes(x = year, y = log_mean_ichthyo)) +
 # k = 5 
 # run_mean_zp uses all available years up to k (right-aligned, na_rm = TRUE)
 
-## --- Time series 1 = 1978-1987 ---
+## --- Time series 1 = 1977-1987 ---
 ts1_rm <- ts1_ichthyo_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
@@ -264,24 +265,32 @@ ggplot(ts2_rm, aes(x = year, y = run_mean_ichthyo)) +
 ## ------------------------------------------ ##
 #    4) Standard Deviation
 ## ------------------------------------------ ##
-# SD of annual log-means across each time series 
+# SD of 5-yr running means across each time series
 # = interannual variability metric for trophic amplification test
 # does variability increase at higher trophic levels?
 
-## --- Time series 1 = 1978-1987 ---
-ts1_ichthyo <- ts1_ichthyo %>%
+## --- Time series 1 = 1977-1987 ---
+ts1_sd <- ts1_rm %>%
   group_by(region, season) %>%
-  mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
-  ungroup()
+  summarize(sd_ichthyo = sd(run_mean_ichthyo, na.rm = TRUE),
+            .groups = "drop")
+# ts1_ichthyo <- ts1_ichthyo %>%
+#   group_by(region, season) %>%
+#   mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
+#   ungroup()
 
 ## --- Time series 2 = 1998-now ---
-ts2_ichthyo <- ts2_ichthyo %>%
+ts2_sd <- ts2_rm %>%
   group_by(region, season) %>%
-  mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
-  ungroup()
+  summarize(sd_ichthyo = sd(run_mean_ichthyo, na.rm = TRUE),
+            .groups = "drop")
+# ts2_ichthyo <- ts2_ichthyo %>%
+#   group_by(region, season) %>%
+#   mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
+#   ungroup()
 
 ## --- plot ---
-ggplot(ts2_ichthyo, aes(x = year, y = sd_ichthyo)) +
+ggplot(ts2_sd, aes(x = season, y = sd_ichthyo)) +
   geom_point() +
   facet_grid(season~region) 
 
@@ -297,36 +306,33 @@ ggplot(ts2_ichthyo, aes(x = year, y = sd_ichthyo)) +
 ## --- Time series 1 ---
 ts1_ichthyo_full <- ts1_ichthyo %>%
   left_join(ts1_rm %>% select(region, season, year, run_mean_ichthyo),
-            by = c("region", "season", "year"))
+            by = c("region", "season", "year")) %>%
+  left_join(ts1_sd, by = c("region", "season"))
 
 ts1_ichthyo_sum <- ts1_ichthyo_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
   select(region, season, year, min_nonzero, log10_ichthyo, log_mean_ichthyo, 
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
-         sd_ichthyo, run_mean_ichthyo
-  )
+         sd_ichthyo, run_mean_ichthyo)
 
 ## --- Time series 2 ---
 ts2_ichthyo_full <- ts2_ichthyo %>%
   left_join(ts2_rm %>% select(region, season, year, run_mean_ichthyo),
-            by = c("region", "season", "year"))
+            by = c("region", "season", "year")) %>%
+  left_join(ts2_sd, by = c("region", "season"))
 
 ts2_ichthyo_sum <- ts2_ichthyo_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
   select(region, season, year, min_nonzero, log10_ichthyo, log_mean_ichthyo, 
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
-         sd_ichthyo, run_mean_ichthyo
-  )
+         sd_ichthyo, run_mean_ichthyo)
 
-# write.csv(ts1_ichthyo_full, "output/trophamp_ichthyo_1978_1987_full.csv", row.names = FALSE)
-# write.csv(ts1_ichthyo_sum,  "output/trophamp_ichthyo_1978_1987_sum.csv",  row.names = FALSE)
-# write.csv(ts2_ichthyo_full, "output/trophamp_ichthyo_1998_2023_full.csv", row.names = FALSE)
-# write.csv(ts2_ichthyo_sum,  "output/trophamp_ichthyo_1998_2023_sum.csv",  row.names = FALSE)
+#write.csv(ts1_ichthyo_full, "data/output/trophamp_ichthyo_1978_1987_full.csv", row.names = FALSE)
+#write.csv(ts1_ichthyo_sum,  "data/output/trophamp_ichthyo_1978_1987_sum.csv",  row.names = FALSE)
+#write.csv(ts2_ichthyo_full, "data/output/trophamp_ichthyo_1998_2023_full.csv", row.names = FALSE)
+#write.csv(ts2_ichthyo_sum,  "data/output/trophamp_ichthyo_1998_2023_sum.csv",  row.names = FALSE)
 
-## --- SD ---
-ts2_sd <- ts2_ichthyo_sum %>%
-  distinct(region, season, sd_ichthyo)
-#write.csv(ts2_sd, "output/trophamp_ichthyo_1998_2023_sd.csv", row.names = FALSE)
+#write.csv(ts2_sd, "data/output/trophamp_ichthyo_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
 #    Plots                                 
@@ -352,8 +358,7 @@ ggplot(ts2_ichthyo_sum, aes(x = region, y = sd_ichthyo, color = season)) +
   labs(
     title = "Ichthyoplankton",
     subtitle = "Time series 2: 1998–2023",
-    x = "Region",
-    y = "SD of log10 annual mean",
+    y = "SD of log10 running mean",
     color = "Season"
   ) +
   theme_bw()
