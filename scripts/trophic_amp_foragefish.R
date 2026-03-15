@@ -8,17 +8,17 @@
 ## Author:  Alexandra C. Cabanelas Bermudez
 ## Created: August 2025  |  Updated: March 2026
 ##
-## Purpose: Prepares forage fish biomass (CPUE) from NEFSC bottom trawl 
-##          survey for trophic amplification analysis.        
+## Purpose: Prepares forage fish biomass from NEFSC bottom trawl survey for 
+##          trophic amplification analysis.        
 ##          Applies vessel/gear correction factors and produces log-transformed
-##          annual means and 5-year running means by region and season.              
-##          TS1: 1977–1987                           
-##          TS2: 1998–present (matched to chl-a) 
+##          annual means and 5-year running means by region and season for
+##          for 1998–2023 (to match chl-a/sat records)
 ##       1) Apply vessel/gear corrections (DCF, GCF, VCF, Bigelow rhoW)
 ##       2) log10(x + (min/2)) for each station; x = summed forage fish CPUE
 ##       3) Average across stations per region/season/year
 ##       4) 5-year running mean (k=5, index-aware)
 ##       5) Compute SD of time series
+##     Troph amp code starts line 447
 ##
 ## Inputs (data/raw/):
 ##   - 22560_NEFSCFallFisheriesIndependentBottomTrawlData/
@@ -30,10 +30,11 @@
 ##       22561_UNION_FSCS_SVCAT.csv
 ##       22561_UNION_FSCS_SVSTA.csv
 ##   - NEFSC_conversion_factors.csv   (OceanAdapt/GitHub)
-##  https://github.com/pinskylab/OceanAdapt/blob/master/data_raw/NEFSC_conversion_factors.csv
+##     https://github.com/pinskylab/OceanAdapt/blob/master/data_raw/NEFSC_conversion_factors.csv
 ##   - Miller2010_Bigelow_calibration_factors.csv   (Miller et al. 2010)
-##   - EcomonStrata_v4.shp
-##   - EcomonStrata_v4b.shp
+##     https://repository.library.noaa.gov/view/noaa/3726
+##   - EcomonStrata_v4.shp  (from EcoMon)
+##   - EcomonStrata_v4b.shp (from EcoMon)
 ##
 ## Outputs (data/output/):
 ##   - 
@@ -53,70 +54,72 @@ library(sf)
 ## ------------------------------------------ ##
 ## --- Fall ---
 fall_catch <- read_csv(here::here("data", "raw",
-                                  "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
-                                  "22560_UNION_FSCS_SVCAT.csv"),
+                       "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
+                       "22560_UNION_FSCS_SVCAT.csv"),
               # read as character to avoid floating point precision loss (id ~ 2e17)
                        col_types = cols(ID = col_character())) %>%
   clean_names()
 
 fall_meta <- read_csv(here::here("data", "raw",
-                                 "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
-                                 "22560_UNION_FSCS_SVSTA.csv"),
+                      "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
+                      "22560_UNION_FSCS_SVSTA.csv"),
                       col_types = cols(ID = col_character())) %>%
   clean_names()
 
 ## --- Spring ---
 spring_catch <- read_csv(here::here("data", "raw",
-                                    "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
-                                    "22561_UNION_FSCS_SVCAT.csv"),
+                         "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
+                         "22561_UNION_FSCS_SVCAT.csv"),
                          col_types = cols(ID = col_character())) %>%
   clean_names()
 
 spring_meta <- read_csv(here::here("data", "raw",
-                                   "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
-                                   "22561_UNION_FSCS_SVSTA.csv"),
+                        "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
+                        "22561_UNION_FSCS_SVSTA.csv"),
                         col_types = cols(ID = col_character())) %>%
   clean_names()
 
 ## --- spp codes --- 
 spp_codes <- read_csv(here::here("data", "raw",
-                                 "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
-                                 "Fall_SVDBS_SupportTables",
-                                 "SVDBS_SVSPECIES_LIST.csv")) %>%
+                      "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
+                      "Fall_SVDBS_SupportTables",
+                      "SVDBS_SVSPECIES_LIST.csv")) %>%
   clean_names()
 
 ## --- region info --- 
 svmstrata <- read_csv(here::here("data", "raw",
-                                 "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
-                                 "Fall_SVDBS_SupportTables",
-                                 "SVDBS_SVMSTRATA.csv")) %>%
+                      "22560_NEFSCFallFisheriesIndependentBottomTrawlData",
+                      "Fall_SVDBS_SupportTables",
+                      "SVDBS_SVMSTRATA.csv")) %>%
   clean_names() %>%
   select(stratum, stratum_name) %>%
   distinct()
 
 ## --- Conversion Factors ---
 # Source: NEFSC_conversion_factors.csv (OceanAdapt GitHub)
+#https://github.com/pinskylab/OceanAdapt/raw/master/data_raw/NEFSC_conversion_factors.csv
 nefsc_cf_full <- read_csv(here::here("data", "raw",
-                                     "NEFSC_conversion_factors.csv")) %>%
+                          "NEFSC_conversion_factors.csv")) %>%
   clean_names() 
 
 ## --- Bigelow / Pisces (rhoW) ---
 # Source: Miller et al. 2010, NEFSC Ref Doc 10-05, Tables 56-58
+#https://repository.library.noaa.gov/view/noaa/3726
 bigelow_cf <- read_csv(here::here("data", "raw",
-                                  "Miller2010_Bigelow_calibration_factors.csv")) %>%
+                       "Miller2010_Bigelow_calibration_factors.csv")) %>%
   clean_names() 
 
 ## ------------------------------------------ ##
 #            Species codes
 ## ------------------------------------------ ##
 ## --- Spp Codes ---
-# based on SVDBS_SVSPECIES_LIST.csv
+#     SVDBS_SVSPECIES_LIST.csv
 # Atlantic herring    == Clupea harengus      == 032
 # Atlantic mackerel   == Scomber scombrus     == 121 
 # Atlantic butterfish == Peprilus spp         == 131
 #                        Ammodytes spp      
-# American sand lance == Ammodytes americanus == 734
 # Northern sand lance == Ammodytes dubius     == 181
+# American sand lance == Ammodytes americanus == 734
 
 # svspp codes for target forage fish species
 forage_spp <- spp_codes %>%
@@ -134,26 +137,26 @@ forage_codes <- forage_spp$svspp
 #            Conversion Factors
 ## ------------------------------------------ ##
 ## --- DCF / GCF / VCF ---
-# DCF = Door Conversion Factor       applied: year < 1985
-# GCF = Gear Conversion Factor       applied: spring, year 1973-1981
-# VCF = Vessel Conversion Factor     applied: vessel == "DE" (Delaware II)
+# DCF = Door Conversion Factor      applied: year < 1985
+# GCF = Gear Conversion Factor      applied: spring, year 1973-1981
+# VCF = Vessel Conversion Factor    applied: vessel == "DE" (Delaware II)
 nefsc_cf <- nefsc_cf_full %>%
   mutate(svspp = as.character(svspp)) %>%
   # only keep species relevant to forage fish
   filter(svspp %in% as.character(as.integer(forage_codes))) %>%
   select(svspp, dcf_wt, gcf_wt, vcf_wt) %>%
-  mutate(svspp = str_pad(svspp, width = 3, pad = "0"))  # "32" -> "032"
+  mutate(svspp = str_pad(svspp, width = 3, pad = "0"))  # 32 -> 032
 
 ## --- Bigelow / Pisces (rhoW) ---
 # Bigelow (HB) and Pisces (PC) vessel corrections post-2008
 # Season-specific where available; combined estimate where not
 # Atlantic mackerel and N. sand lance only appear in Table 56 (combined seasons)
 #there weren't enough season-specific observations to estimate separate spring/fall factors
-# Ammodytes americanus has no correction factor in this document
-# svspp 734 not in Miller 2010; using 181 value as proxy
+# Ammodytes americanus (svspp 734) has no correction factor in this document
+# using 181 value as proxy
 
 # Tables 56, 57, 58
-# Columns 5&6
+# Columns 5 & 6
 # ρ_W = ratio of the total survey-wide biomass estimate between vessels
 bigelow_cf <- bigelow_cf %>%
   #mutate(svspp = as.character(svspp)) %>%
@@ -173,7 +176,7 @@ prep_survey <- function(catch, meta, season_label) {
   catch %>%
     # keep only target forage fish species
     filter(svspp %in% forage_codes) %>%
-    # join haul-level metadata (location, vessel, env conditions)
+    # join haul-level metadata 
     # id = Concatenation of Cruise6, Stratum, Tow and Station values
     left_join(
       meta %>%
@@ -196,7 +199,7 @@ prep_survey <- function(catch, meta, season_label) {
       svvessel      = as.character(svvessel)
     ) %>%
     # sum across sexes for same species at same haul
-    # this collapses e.g. male + female + unknown into one row per haul x svspp
+    # this collapses male + female + unknown into one row per haul x svspp
     group_by(id, svspp, year, month, lat, lon, depth, stratum,
              svvessel, season_survey, surftemp, surfsalin, bottemp, botsalin) %>%
     summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
@@ -205,9 +208,8 @@ prep_survey <- function(catch, meta, season_label) {
 fall_df   <- prep_survey(fall_catch,   fall_meta,   "Fall")
 spring_df <- prep_survey(spring_catch, spring_meta, "Spring")
 
-# verify: no duplicate haul x svspp rows
 fall_df %>% count(svspp)
-fall_df %>% count(id, svspp) %>% filter(n > 1)
+fall_df %>% count(id, svspp) %>% filter(n > 1) # no duplicate haul x svspp rows
 
 ## ------------------------------------------ ##
 #            Vessel & Gear Corrections
@@ -281,6 +283,7 @@ apply_corrections <- function(df, nefsc_cf, bigelow_cf) {
   
   # Step 4: Bigelow/Pisces rhoW
   # join season-specific rhoW where available, "both" as fallback
+  # svspp 734 (A. americanus) has no Bigelow CF - no correction applied
   rho_specific <- bigelow_cf %>% 
     filter(season != "Both")
   rho_both     <- bigelow_cf %>% 
@@ -301,7 +304,7 @@ apply_corrections <- function(df, nefsc_cf, bigelow_cf) {
   
   return(df)
 }
-# svspp 734 (A. americanus) has no Bigelow CF - no correction applied
+
 fall_df   <- apply_corrections(fall_df,   nefsc_cf, bigelow_cf)
 spring_df <- apply_corrections(spring_df, nefsc_cf, bigelow_cf)
 
@@ -380,7 +383,7 @@ fall_df_region <- fall_df_region %>%
     )
   ) %>%
   filter(region %in% c("MAB", "GB", "GOM")) %>%
-  select(-c(name, numof_poly,numof_sta, area))
+  select(-c(name, numof_poly, numof_sta, area))
 
 spring_df_region <- spring_df_region %>%
   mutate(
@@ -412,7 +415,8 @@ ff <- bind_rows(fall_df_region, spring_df_region) %>%
 ## ------------------------------------------ ##
 # sum cpue across species per haul
 
-## --- Sum ALL species into single forage fish index per haul ---     
+## --- Sum ALL 4 species into single forage fish index per haul ---  
+unique(ff$target_taxa)
 ff <- ff %>%
   group_by(id, year, month, season, season_survey,
            lat, lon, depth, stratum, stratum_name, region, svvessel,
@@ -423,6 +427,12 @@ ff <- ff %>%
 ggplot(ff, aes(x = year, y = wtcpue)) +
   geom_point(alpha = 0.3) +
   facet_wrap(~season, scales = "free") +
+  theme_bw() +
+  labs(title = "Raw forage fish CPUE (corrected)")
+
+ggplot(ff, aes(x = year, y = wtcpue)) +
+  geom_point(alpha = 0.3) +
+  facet_grid(season ~ region, scales = "free") +
   theme_bw() +
   labs(title = "Raw forage fish CPUE (corrected)")
 
@@ -446,12 +456,13 @@ ts1_ff <- ff %>%
 ## --- Time series 2 = 1998-2023 ---
 # matched to chla time series
 ts2_ff <- ff %>% 
-  filter(between(year, 1998, 2023))#filter(year >= 1998)
+  filter(between(year, 1998, 2023))
 
 ## ------------------------------------------ ##
 #    1) Log Transformation
 ## ------------------------------------------ ##
 # log10(x + min_nonzero/2) per region/season/species group
+# find the minimum non-zero value for each region and season
 
 log_transform_ff <- function(df) {
   df %>%
@@ -480,6 +491,7 @@ ggplot(ts2_ff, aes(x = year, y = log10_ff)) +
 # two versions, needed downstream:
 # ts_ff     - station-level, log_mean_ff broadcast as repeated column
 # ts_ff_sum - one row per region/season/year/species, used for running mean
+## ------------------------------------------ ##
 
 ## --- Full station-level data with annual mean column attached ---
 annual_means_ff <- function(df) {
@@ -561,34 +573,33 @@ ggplot(ts2_rm_ff, aes(x = year, y = run_mean_ff)) +
 ## ------------------------------------------ ##
 #    4) Standard Deviation
 ## ------------------------------------------ ##
-# SD of 5-yr running means across each time series
+# SD of 5-yr log annual means across each time series
 # = interannual variability metric for trophic amplification test
 # does variability increase at higher trophic levels?
 
 ## --- Time series 1 = 1977-1987 ---
-ts1_sd <- ts1_rm_ff %>%
+ts1_ff <- ts1_ff %>%
   group_by(region, season) %>%
-  summarize(sd_ff = sd(run_mean_ff, na.rm = TRUE),
-            .groups = "drop")
-# ts1_ff <- ts1_ff %>%
-#   group_by(region, season) %>% 
-#   mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
-#   ungroup()
+  mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
+  ungroup()
 
 ## --- Time series 2 = 1998-2023 ---
-ts2_sd <- ts2_rm_ff %>%
+ts2_ff <- ts2_ff %>%
   group_by(region, season) %>%
-  summarize(sd_ff = sd(run_mean_ff, na.rm = TRUE),
-            .groups = "drop")
-# ts2_ff <- ts2_ff %>%
-#   group_by(region, season) %>% 
-#   mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
-#   ungroup()
+  mutate(sd_ff = sd(log_mean_ff, na.rm = TRUE)) %>%
+  ungroup()
+
+# final SD table
+ff_sd <- ts2_ff %>%
+  group_by(region, season) %>%
+  summarize(sd_ff = sd(log_mean_ff, na.rm = TRUE), .groups = "drop")
 
 ## --- plot ---
-ggplot(ts2_sd, aes(x = season, y = sd_ff)) +
-  geom_point() +
-  facet_grid(season~region) 
+ggplot(ff_sd, aes(x = season, y = sd_ff, color = region)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = region)) +
+  theme_bw() +
+  labs(title = "SD FF 1998-2023")
 
 ## ------------------------------------------ ##
 #    5) Final Output Tables
@@ -599,8 +610,11 @@ ggplot(ts2_sd, aes(x = season, y = sd_ff)) +
 ## --- Time series 1 --
 ts1_ff_full <- ts1_ff %>%
   left_join(ts1_rm_ff %>% select(region, season, year, run_mean_ff),
-            by = c("region", "season", "year")) %>%
-  left_join(ts1_sd, by = c("region", "season"))
+            by = c("region", "season", "year"))
+# ts1_ff_full <- ts1_ff %>%
+#   left_join(ts1_rm_ff %>% select(region, season, year, run_mean_ff),
+#             by = c("region", "season", "year")) %>%
+#   left_join(ts1_sd, by = c("region", "season"))
 
 ts1_ff_sum <- ts1_ff_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
@@ -611,8 +625,11 @@ ts1_ff_sum <- ts1_ff_full %>%
 ## --- Time series 2 ---
 ts2_ff_full <- ts2_ff %>%
   left_join(ts2_rm_ff %>% select(region, season, year, run_mean_ff),
-            by = c("region", "season", "year")) %>%
-  left_join(ts2_sd, by = c("region", "season"))
+            by = c("region", "season", "year"))
+# ts2_ff_full <- ts2_ff %>%
+#   left_join(ts2_rm_ff %>% select(region, season, year, run_mean_ff),
+#             by = c("region", "season", "year")) %>%
+#   left_join(ts2_sd, by = c("region", "season"))
 
 ts2_ff_sum <- ts2_ff_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
@@ -620,36 +637,37 @@ ts2_ff_sum <- ts2_ff_full %>%
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt,
          sd_ff, run_mean_ff)
 
-#write.csv(ts1_ff_full, "data/output/trophamp_ff_1977_1987_full.csv",   row.names = FALSE)
-#write.csv(ts1_ff_sum,  "data/output/trophamp_ff_1977_1987_sum.csv",    row.names = FALSE)
-#write.csv(ts2_ff_full, "data/output/trophamp_ff_1998_2023_full.csv",row.names = FALSE)
-#write.csv(ts2_ff_sum,  "data/output/trophamp_ff_1998_2023_sum.csv", row.names = FALSE)
-
-#write.csv(ts2_sd, "data/output/trophamp_ff_1998_2023_sd.csv", row.names = FALSE)
+# write.csv(ts1_ff_full, "data/output/trophamp_ff_1977_1987_full.csv",   row.names = FALSE)
+# write.csv(ts1_ff_sum,  "data/output/trophamp_ff_1977_1987_sum.csv",    row.names = FALSE)
+# write.csv(ts2_ff_full, "data/output/trophamp_ff_1998_2023_full.csv",row.names = FALSE)
+# write.csv(ts2_ff_sum,  "data/output/trophamp_ff_1998_2023_sum.csv", row.names = FALSE)
+# write.csv(ff_sd, "data/output/trophamp_ff_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
 #    Plots
 ## ------------------------------------------ ##
 
-## --- Annual log means TS2 ---
+## --- Annual log means ---
 ggplot(ts2_ff_sum, aes(x = year, y = log_mean_ff)) +
   geom_point() +
   geom_line(data = ts2_rm_ff, aes(x = year, y = run_mean_ff),
-            linewidth = 1.2) +
+            color = "red", linewidth = 1.2) +
   facet_grid(season ~ region) +
   scale_color_brewer(palette = "Set2") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(title = "Forage Fish - TS2 (1998-present)",
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12,
+                                   color = "black"),
+        panel.grid = element_blank()) +
+  labs(title = "Forage Fish (1998-2023)",
        y = "log10 mean CPUE", x = NULL)
 
-## --- SD TS2 ---
-ggplot(ts2_ff_sum, aes(x = region, y = sd_ff, color = season)) +
-  geom_point(size = 4, position = position_dodge(width = 0.3)) +
-  scale_color_brewer(palette = "Set2") +
-  theme_bw() +
-  labs(title = "Forage Fish Interannual Variability - TS2 (1998-present)",
-       x = "Region", y = "SD of log10 annual mean CPUE", color = "Season")
+## --- SD ---
+# ggplot(ts2_ff_sum, aes(x = region, y = sd_ff, color = season)) +
+#   geom_point(size = 4, position = position_dodge(width = 0.3)) +
+#   scale_color_brewer(palette = "Set2") +
+#   theme_bw() +
+#   labs(title = "Forage Fish Interannual Variability (1998-present)",
+#        x = "Region", y = "SD of log10 annual mean CPUE", color = "Season")
 
 ## --- anomaly --- 
 ts2_anom <- ts2_ff_sum %>%
@@ -702,3 +720,132 @@ ggplot(ts2_check, aes(year, n_in_window)) +
   facet_grid(season ~ region) +
   theme_bw() +
   labs(y = "Observations in 5-year window", x = NULL)
+
+
+## --- look at tow dur
+# pre-2009: intended duration = 0.5 hr; post-2009: 0.333 hr
+# TOWDUR column is in minutes in the raw metadata
+
+fall_meta <- fall_meta %>%
+  mutate(haul_dur = as.numeric(towdur) / 60)
+
+fall_meta_filtered <- fall_meta %>%
+  filter(
+    (est_year <  2009 & between(haul_dur,   0.5   - 0.083, 0.5   + 0.083)) |
+      (est_year >= 2009 & between(haul_dur, 0.333 - 0.083, 0.333 + 0.083))
+  )
+
+# check how many hauls removed
+cat("Removed", nrow(fall_meta) - nrow(fall_meta_filtered), 
+    "fall hauls (", 
+    round((nrow(fall_meta) - nrow(fall_meta_filtered))/nrow(fall_meta)*100, 1),
+    "%)\n")
+
+## --- Spring ---
+spring_meta <- spring_meta %>%
+  mutate(haul_dur = as.numeric(towdur) / 60)
+
+spring_meta_filtered <- spring_meta %>%
+  filter(
+    (est_year <  2009 & between(haul_dur, 0.417, 0.583)) |
+      (est_year >= 2009 & between(haul_dur, 0.250, 0.416))
+  )
+
+cat("Removed", nrow(spring_meta) - nrow(spring_meta_filtered),
+    "spring hauls (",
+    round((nrow(spring_meta) - nrow(spring_meta_filtered)) / nrow(spring_meta) * 100, 1),
+    "%)\n")
+
+## --- Plot function
+plot_haul_dur <- function(meta, survey_label) {
+  
+  hline_pre  <- data.frame(period = factor("pre-2009 (target: 0.5 hr)",
+                                           levels = c("pre-2009 (target: 0.5 hr)",
+                                                      "post-2009 (target: 0.333 hr)")),
+                           yint = c(0.417, 0.5, 0.583))
+  
+  hline_post <- data.frame(period = factor("post-2009 (target: 0.333 hr)",
+                                           levels = c("pre-2009 (target: 0.5 hr)",
+                                                      "post-2009 (target: 0.333 hr)")),
+                           yint = c(0.250, 0.333, 0.416))
+  meta %>%
+    filter(!is.na(haul_dur)) %>%
+    mutate(
+      est_year = as.numeric(est_year),
+      period   = factor(
+        if_else(est_year < 2009,
+                "pre-2009 (target: 0.5 hr)",
+                "post-2009 (target: 0.333 hr)"),
+        levels = c("pre-2009 (target: 0.5 hr)",
+                   "post-2009 (target: 0.333 hr)")
+      ),
+      status = case_when(
+        est_year <  2009 & between(haul_dur, 0.417, 0.583) ~ "Within window",
+        est_year >= 2009 & between(haul_dur, 0.250, 0.416) ~ "Within window",
+        TRUE                                               ~ "Outside window"
+      )
+    ) %>%
+    filter(!is.na(period)) %>%
+    ggplot(aes(x = est_year, y = haul_dur, color = status)) +
+    geom_point(alpha = 0.5, size = 1.5) +
+    geom_hline(data = hline_pre,  aes(yintercept = yint),
+               linetype = c("dashed", "solid", "dashed"), linewidth = 0.6) +
+    geom_hline(data = hline_post, aes(yintercept = yint),
+               linetype = c("dashed", "solid", "dashed"), linewidth = 0.6) +
+    scale_color_manual(values = c("Within window"  = "steelblue",
+                                  "Outside window" = "firebrick")) +
+    scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+    scale_x_continuous(breaks = seq(1963, 2023, by = 4)) +
+    facet_wrap(~period, scales = "free_x") +
+    theme_bw() +
+    labs(title    = paste(survey_label, "haul durations"),
+         subtitle = "Dashed lines = ±5 min window; solid = target duration",
+         x = NULL, y = "Haul duration (hrs)", color = NULL)
+}
+
+plot_haul_dur(fall_meta,   "Fall")
+plot_haul_dur(spring_meta, "Spring")
+
+## --- Count table ---
+dur_table <- function(meta, survey_label) {
+  meta %>%
+    #filter(as.numeric(est_year) >= 1998) %>%
+    mutate(
+      est_year = as.numeric(est_year),
+      status   = case_when(
+        is.na(haul_dur)                                     ~ "NA",
+        est_year <  2009 & between(haul_dur, 0.417, 0.583)  ~ "Within window",
+        est_year >= 2009 & between(haul_dur, 0.250, 0.416)  ~ "Within window",
+        TRUE                                                ~ "Outside window"
+      )
+    ) %>%
+    count(est_year, status) %>%
+    pivot_wider(names_from = status, values_from = n, values_fill = 0) %>%
+    mutate(pct_drop  = round(Drop / (Keep + Drop + NA) * 100, 1),
+           survey    = survey_label)
+}
+
+bind_rows(
+  dur_table(fall_meta,   "Fall"),
+  dur_table(spring_meta, "Spring")
+) %>%
+  arrange(survey, est_year) %>%
+  print(n = 60)
+
+## --- Outlier ---
+outlier_inspect <- function(meta, survey_label) {
+  meta %>%
+    #filter(as.numeric(est_year) >= 1998) %>%
+    mutate(est_year = as.numeric(est_year)) %>%
+    filter(haul_dur > 1 | haul_dur < 0.05) %>%
+    select(id, est_year, svvessel, stratum, haul_dur,
+           decdeg_beglat, decdeg_beglon) %>%
+    arrange(desc(haul_dur)) %>%
+    mutate(survey = survey_label)
+}
+
+bind_rows(
+  outlier_inspect(fall_meta,   "Fall"),
+  outlier_inspect(spring_meta, "Spring")
+) %>%
+  print(n = 50)

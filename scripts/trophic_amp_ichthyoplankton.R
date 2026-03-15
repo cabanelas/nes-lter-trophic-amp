@@ -267,7 +267,7 @@ ggplot(ts2_rm, aes(x = year, y = run_mean_ichthyo)) +
 ## ------------------------------------------ ##
 #    4) Standard Deviation
 ## ------------------------------------------ ##
-# SD of 5-yr running means across each time series
+# SD of 5-yr log annual means across each time series
 # = interannual variability metric for trophic amplification test
 # does variability increase at higher trophic levels?
 
