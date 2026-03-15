@@ -37,7 +37,9 @@
 ##   - EcomonStrata_v4b.shp (from EcoMon)
 ##
 ## Outputs (data/output/):
-##   - 
+##   - trophamp_ff_1998_2023_full = all station rows with sd_ff and run_mean_ff joined on
+##   - trophamp_ff_1998_2023_sum  = one row per region/season/year (annual means only)
+##   - trophamp_ff_1998_2023_sd   = sd_ff per region/season
 ################################################################################
 
 ## ------------------------------------------ ##
@@ -722,7 +724,7 @@ ggplot(ts2_check, aes(year, n_in_window)) +
   labs(y = "Observations in 5-year window", x = NULL)
 
 
-## --- look at tow dur
+## --- look at tow duration --- 
 # pre-2009: intended duration = 0.5 hr; post-2009: 0.333 hr
 # TOWDUR column is in minutes in the raw metadata
 
@@ -800,6 +802,55 @@ plot_haul_dur <- function(meta, survey_label) {
     theme_bw() +
     labs(title    = paste(survey_label, "haul durations"),
          subtitle = "Dashed lines = ±5 min window; solid = target duration",
+         x = NULL, y = "Haul duration (hrs)", color = NULL)
+}
+
+plot_haul_dur(fall_meta,   "Fall")
+plot_haul_dur(spring_meta, "Spring")
+
+plot_haul_dur <- function(meta, survey_label) {
+  
+  x_min <- 1963
+  x_cut <- 2009
+  x_max <- 2025
+  
+  meta %>%
+    filter(!is.na(haul_dur)) %>%
+    mutate(
+      est_year = as.numeric(est_year),
+      status = case_when(
+        est_year <  2009 & between(haul_dur, 0.417, 0.583) ~ "Within window",
+        est_year >= 2009 & between(haul_dur, 0.250, 0.416) ~ "Within window",
+        TRUE                                               ~ "Outside window"
+      )
+    ) %>%
+    ggplot(aes(x = est_year, y = haul_dur, color = status)) +
+    geom_point(alpha = 0.5, size = 1.5) +
+    # vertical cutoff line
+    geom_vline(xintercept = x_cut, linetype = "dotted", 
+               linewidth = 0.8, color = "gray30") +
+    # pre-2009 reference lines (solid = target, dashed = window)
+    geom_segment(aes(x = x_min, xend = x_cut, y = 0.500, yend = 0.500),
+                 linetype = "solid",  linewidth = 0.6, color = "gray30") +
+    geom_segment(aes(x = x_min, xend = x_cut, y = 0.417, yend = 0.417),
+                 linetype = "dashed", linewidth = 0.6, color = "gray30") +
+    geom_segment(aes(x = x_min, xend = x_cut, y = 0.583, yend = 0.583),
+                 linetype = "dashed", linewidth = 0.6, color = "gray30") +
+    # post-2009 reference lines
+    geom_segment(aes(x = x_cut, xend = x_max, y = 0.333, yend = 0.333),
+                 linetype = "solid",  linewidth = 0.6, color = "gray30") +
+    geom_segment(aes(x = x_cut, xend = x_max, y = 0.250, yend = 0.250),
+                 linetype = "dashed", linewidth = 0.6, color = "gray30") +
+    geom_segment(aes(x = x_cut, xend = x_max, y = 0.416, yend = 0.416),
+                 linetype = "dashed", linewidth = 0.6, color = "gray30") +
+    scale_color_manual(values = c("Within window"  = "steelblue",
+                                  "Outside window" = "firebrick")) +
+    scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+    scale_x_continuous(breaks = seq(1963, 2025, by = 4)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(title    = paste(survey_label, "haul durations"),
+         subtitle = "Vertical line = 2009 vessel transition | Dashed = ±5 min window",
          x = NULL, y = "Haul duration (hrs)", color = NULL)
 }
 

@@ -165,6 +165,7 @@ fig01 <- ggplot() +
 
 print(fig01)
 # save_fig(fig01, "fig01_station_map.png", width = 12, height = 5)
+rm(ecomap, ecomap_valid, ecomap1, ecomap2)
 
 ## ------------------------------------------ ##
 #   FIGURE 2: Raw vs. Corrected Forage Fish CPUE 
@@ -265,7 +266,7 @@ corrected_ff_s <- ff_full %>%
   group_by(season_survey, year) %>%
   summarise(wtcpue = mean(wtcpue, na.rm = TRUE), .groups = "drop") %>%
   mutate(version = "Corrected")
-  
+
 ## --- Plot: combined seasons ---
 fig02a <- bind_rows(raw_ff, corrected_ff) %>%
   filter(year >= 1998) %>%
@@ -281,7 +282,7 @@ fig02a <- bind_rows(raw_ff, corrected_ff) %>%
   scale_linetype_manual(values = c("Raw"       = "dashed", 
                                    "Corrected" = "solid")) +
   labs(title    = "Effect of Vessel & Gear Corrections on Forage Fish CPUE",
-       subtitle = "1998–present | Dashed line = Bigelow transition (2009)",
+       subtitle = "1998–2023 | Dashed line = Bigelow transition (2009)",
        x = NULL, y = "Mean CPUE (kg tow\u207B\u00B9)", 
        color = NULL, linetype = NULL) +
   scale_x_continuous(breaks = seq(1998, 2023, by = 5)) +
@@ -309,7 +310,7 @@ fig02b <- bind_rows(raw_ff_s, corrected_ff_s) %>%
                                    "Corrected" = "solid")) +
   facet_wrap(~season_survey, scales = "free_y") +
   labs(title    = "Effect of Vessel & Gear Corrections on Forage Fish CPUE",
-       subtitle = "1998–present | Dashed line = Bigelow transition (2009)",
+       subtitle = "1998–2023 | Dashed line = Bigelow transition (2009)",
        x = NULL, y = "Mean CPUE (kg tow\u207B\u00B9)",
        color = NULL, linetype = NULL) +
   theme_bw() +
@@ -396,7 +397,8 @@ plot_anom <- function(sum_df, y_col, title_label, y_label) {
     facet_grid(season ~ region) +
     labs(title    = title_label,
          subtitle = "Anomaly relative to full time series mean",
-         y = y_label, x = NULL) +
+         y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"), 
+         x = NULL) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
           strip.text  = element_text(face = "bold"),
@@ -530,9 +532,7 @@ zp_raw <- read_csv(here::here("data", "raw", "EcoMon_plankton_v3_10.csv")) %>%
 zp_sd_compare <- zp_raw %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
-  mutate(run_mean_zp = runner::mean_run(log_mean_zp, k = 5,
-                                        idx = year, na_rm = TRUE)) %>%
-  summarize(sd_zp = sd(run_mean_zp, na.rm = TRUE), .groups = "drop")
+  summarize(sd_zp = sd(log_mean_zp, na.rm = TRUE), .groups = "drop")
 
 print(zp_sd_compare)
 
@@ -560,7 +560,8 @@ fig07a <- zp_raw %>%
                           mutate(label = paste0(season, ": r = ", 
                                                 round(r, 2))) %>%
                           pull(label) %>% paste(collapse = " | ")),
-       y = "log\u2081\u2080 annual mean ZP", x = NULL, color = "Region")
+       y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"),
+       x = NULL, color = "Region")
 
 ## --- Plot: boxplot all 4 regions ---
 fig07b <- zp_raw %>%
@@ -570,7 +571,8 @@ fig07b <- zp_raw %>%
   scale_fill_brewer(palette = "Set1") +
   theme_bw() +
   labs(title = "Zooplankton Distribution by Region (1998–present)",
-       y = "log\u2081\u2080 annual mean ZP", x = NULL) +
+       y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"),
+       x = NULL) +
   theme(legend.position = "none")
 
 print(fig07a)
@@ -604,9 +606,7 @@ ip_raw <- read_csv(here::here("data", "raw", "EcoMon_plankton_v3_10.csv")) %>%
 ip_sd_compare <- ip_raw %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
-  mutate(run_mean_ichthyo = runner::mean_run(log_mean_ichthyo, k = 5,
-                                             idx = year, na_rm = TRUE)) %>%
-  summarize(sd_ichthyo = sd(run_mean_ichthyo, na.rm = TRUE), .groups = "drop")
+  summarize(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE), .groups = "drop")
 print(ip_sd_compare)
 
 ## --- Correlation MAB vs SNE ---
@@ -626,13 +626,13 @@ fig08a <- ip_raw %>%
   facet_wrap(~season) +
   scale_color_brewer(palette = "Set1") +
   theme_bw() +
-  labs(title    = "Ichthyoplankton: MAB vs SNE (1998–present)",
+  labs(title    = "Ichthyoplankton: MAB vs SNE (1998–2023)",
        subtitle = paste("Pearson r by season:",
                         ip_cor %>%
                           mutate(label = paste0(season, ": r = ",
                                                 round(r, 2))) %>%
                           pull(label) %>% paste(collapse = " | ")),
-       y = "log\u2081\u2080 annual mean abundance (per 10 m²)",
+       y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"), 
        x = NULL, color = "Region")
 
 ## --- Plot: boxplot all 4 regions ---
@@ -642,8 +642,9 @@ fig08b <- ip_raw %>%
   facet_wrap(~season) +
   scale_fill_brewer(palette = "Set1") +
   theme_bw() +
-  labs(title = "Ichthyoplankton Distribution by Region (1998–present)",
-       y = "log\u2081\u2080 annual mean abundance (per 10 m²)", x = NULL) +
+  labs(title = "Ichthyoplankton Distribution by Region (1998–2023)",
+       y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"), 
+       x = NULL) +
   theme(legend.position = "none")
 
 print(fig08a)
@@ -689,8 +690,8 @@ fig09a <- ip_taxa %>%
   facet_grid(taxon ~ season) +
   scale_color_brewer(palette = "Set1") +
   theme_bw() +
-  labs(title = "Ichthyoplankton by Taxa: MAB vs SNE (1998–present)",
-       y = "log\u2081\u2080 annual mean abundance (per 10 m²)",
+  labs(title = "Ichthyoplankton by Taxa: MAB vs SNE (1998–2023)",
+       y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"),
        x = NULL, color = "Region")
 
 ## --- taxa boxplot all 4 regions ---
@@ -700,8 +701,9 @@ fig09b <- ip_taxa %>%
   facet_grid(taxon ~ season) +
   scale_fill_brewer(palette = "Set1") +
   theme_bw() +
-  labs(title = "Ichthyoplankton Taxa Distribution by Region (1998–present)",
-       y = "log\u2081\u2080 annual mean abundance (per 10 m²)", x = NULL) +
+  labs(title = "Ichthyoplankton Taxa Distribution by Region (1998–2023)",
+       y = expression(log[10]~"annual mean abundance (per 10 m"^2*")"),
+       x = NULL) +
   theme(legend.position = "none")
 
 print(fig09a)
@@ -742,7 +744,7 @@ sd_summary %>%
   gt(rowname_col = "season", groupname_col = "region") %>%
   tab_header(
     title    = "Interannual Variability by Trophic Level",
-    subtitle = "SD of log\u2081\u2080 running mean: 1998\u20132023"
+    subtitle = "SD of log\u2081\u2080 annual mean: 1998\u20132023"
   ) %>%
   cols_label(
     SD_zooplankton     = "Zooplankton",
@@ -756,9 +758,8 @@ sd_summary %>%
     locations = cells_row_groups()
   ) %>%
   tab_footnote(
-    "SD computed across running log\u2081\u2080 means within each region \u00D7 season group"
+    "SD computed across log\u2081\u2080 annual means within each region \u00D7 season group"
   ) %>%
   tab_source_note(
     "ZP & Ichthyo: EcoMon | Forage fish: NEFSC BTS"
   )
-
