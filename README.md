@@ -51,6 +51,7 @@ All trophic levels follow a common processing pipeline:
 | Forage fish | Biomass CPUE (kg tow<sup>-1</sup>) | NOAA NEFSC Bottom Trawl Survey | [InPort: 22560 (Fall)](https://inport.nmfs.noaa.gov/inport/item/22560), [22561 (Spring)](https://inport.nmfs.noaa.gov/inport/item/22561) |
 
 **Ichthyoplankton and Forage fish species included:** Atlantic herring (*Clupea harengus*), Atlantic mackerel (*Scomber scombrus*), Atlantic butterfish (*Peprilus spp.*), sand lance (2 *Ammodytes* spp.)  
+
 *EcoMon data downloaded October 2025; cruises available through 2023. NEFSC trawl data downloaded March 2026.*  
 
 **Auxiliary files:**
@@ -103,7 +104,7 @@ The NEFSC bottom trawl survey spans multiple vessels and gear configurations. Ca
 | 3 | Vessel Conversion Factor (VCF) | vessel == Delaware II ("DE") | multiply |
 | 4 | Bigelow/Pisces calibration (ρ_W) | vessel == HB or PC (post-2008) | divide |
 
-Sources: `NEFSC_conversion_factors.csv` (steps 1–3); Miller et al. 2010 Tables 56–58 (step 4).  
+Sources: [`NEFSC_conversion_factors.csv`](https://github.com/pinskylab/OceanAdapt/blob/master/data_raw/NEFSC_conversion_factors.csv) (steps 1–3); [Miller et al. 2010](https://repository.library.noaa.gov/view/noaa/3726) Tables 56–58 (step 4).  
 Season-specific ρ_W values used where available (herring, butterfish); combined estimate used otherwise (mackerel, sand lance). No ρ_W correction applied to *Ammodytes americanus* — no published value.
 
 ---
