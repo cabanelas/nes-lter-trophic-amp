@@ -23,7 +23,9 @@
 ## Data available for cruises through 2023 - As of 2024_11_06
 ##
 ## Outputs (data/output/):
-##   - 
+##   - trophamp_zp_1998_2023_full = all station rows with sd_zp and run_mean_zp joined on
+##   - trophamp_zp_1998_2023_sum  = one row per region/season/year (annual means only)
+##   - trophamp_zp_1998_2023_sd   = sd_zp per region/season
 ################################################################################
 
 ## ------------------------------------------ ##
@@ -93,7 +95,7 @@ ggplot(zp, aes(x = year, y = volume_1m2)) +
 ts1_zp <- zp %>%
   filter(between(year, 1977, 1987))
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 # matched to chla time series
 ts2_zp <- zp %>%
   filter(year >= 1998)
@@ -117,7 +119,7 @@ log_transform <- function(df) {
 }
 
 ts1_zp <- log_transform(ts1_zp) # TS1: 1977–1987 
-ts2_zp <- log_transform(ts2_zp) # TS2: 1998–present
+ts2_zp <- log_transform(ts2_zp) # TS2: 1998–2023
 
 ## --- plot ---
 ggplot(ts2_zp, aes(x = year, y = log10_zp)) +
@@ -163,7 +165,7 @@ ts1_zp_sum <- ts1_zp %>%
             .groups = "drop" 
             )
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 ## --- Full station-level data with annual mean column attached ---
 # station-level rows retained 
 ts2_zp <- ts2_zp %>%
@@ -210,7 +212,7 @@ ts1_rm <- ts1_zp_sum %>%
                                         idx = year, na_rm = TRUE)) %>% #align=center???
   ungroup()
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 ts2_rm <- ts2_zp_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
@@ -231,29 +233,28 @@ ggplot(ts2_rm, aes(x = year, y = run_mean_zp)) +
 # does variability increase at higher trophic levels?
 
 ## --- Time series 1 = 1977-1987 ---
-ts1_sd <- ts1_rm %>%
+ts1_zp <- ts1_zp %>%
   group_by(region, season) %>%
-  summarize(sd_zp = sd(run_mean_zp, na.rm = TRUE),
-            .groups = "drop")
-# ts1_zp <- ts1_zp %>%
-#   group_by(region, season) %>%
-#   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
-#   ungroup()
+  mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>% #or run_mean_zp?? 
+  ungroup()
 
-## --- Time series 2 = 1998-now ---
-ts2_sd <- ts2_rm %>%
+## --- Time series 2 = 1998-2023 ---
+ts2_zp <- ts2_zp %>%
   group_by(region, season) %>%
-  summarize(sd_zp = sd(run_mean_zp, na.rm = TRUE),
-            .groups = "drop")
-# ts2_zp <- ts2_zp %>%
-#   group_by(region, season) %>%
-#   mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>%
-#   ungroup()
+  mutate(sd_zp = sd(log_mean_zp, na.rm = TRUE)) %>% #or run_mean_zp??
+  ungroup()
+
+# final SD table
+zp_sd <- ts2_zp %>%
+  group_by(region, season) %>%
+  summarize(sd_zp = sd(log_mean_zp, na.rm = TRUE), .groups = "drop")
 
 ## --- plot ---
-ggplot(ts2_sd, aes(x = season, y = sd_zp)) +
-  geom_point() +
-  facet_grid(season~region) 
+ggplot(zp_sd, aes(x = season, y = sd_zp, color = region)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = region)) +
+  theme_bw() +
+  labs(title = "SD ZP 1998-2023")
 
 ## ------------------------------------------ ##
 #    Final Output Tables        
@@ -267,8 +268,11 @@ ggplot(ts2_sd, aes(x = season, y = sd_zp)) +
 ## --- Time series 1 ---
 ts1_full <- ts1_zp %>%
   left_join(ts1_rm %>% select(region, season, year, run_mean_zp),
-            by = c("region", "season", "year")) %>%
-  left_join(ts1_sd, by = c("region", "season"))
+            by = c("region", "season", "year"))
+# ts1_full <- ts1_zp %>%
+#   left_join(ts1_rm %>% select(region, season, year, run_mean_zp),
+#             by = c("region", "season", "year")) %>%
+#   left_join(ts1_sd, by = c("region", "season"))
 
 ts1_sum <- ts1_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
@@ -279,8 +283,11 @@ ts1_sum <- ts1_full %>%
 ## --- Time series 2 ---
 ts2_full <- ts2_zp %>%
   left_join(ts2_rm %>% select(region, season, year, run_mean_zp),
-            by = c("region", "season", "year")) %>%
-  left_join(ts2_sd, by = c("region", "season"))
+            by = c("region", "season", "year"))
+# ts2_full <- ts2_zp %>%
+#   left_join(ts2_rm %>% select(region, season, year, run_mean_zp),
+#             by = c("region", "season", "year")) %>%
+#   left_join(ts2_sd, by = c("region", "season"))
 
 ts2_sum <- ts2_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
@@ -288,18 +295,17 @@ ts2_sum <- ts2_full %>%
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
          sd_zp, run_mean_zp)
 
-#write.csv(ts1_full, "data/output/trophamp_zp_1977_1987_full.csv", row.names = FALSE)
-#write.csv(ts1_sum,  "data/output/trophamp_zp_1977_1987_sum.csv",  row.names = FALSE)
-#write.csv(ts2_full, "data/output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
-#write.csv(ts2_sum,  "data/output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
-
-#write.csv(ts2_sd, "data/output/trophamp_zp_1998_2023_sd.csv", row.names = FALSE)
+# write.csv(ts1_full, "data/output/trophamp_zp_1977_1987_full.csv", row.names = FALSE)
+# write.csv(ts1_sum,  "data/output/trophamp_zp_1977_1987_sum.csv",  row.names = FALSE)
+# write.csv(ts2_full, "data/output/trophamp_zp_1998_2023_full.csv", row.names = FALSE)
+# write.csv(ts2_sum,  "data/output/trophamp_zp_1998_2023_sum.csv",  row.names = FALSE)
+# write.csv(zp_sd, "data/output/trophamp_zp_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
 #    Plots                                 
 ## ------------------------------------------ ##
 
-## --- Annual log means TS2 ---
+## --- Annual log means ---
 ggplot(ts2_sum, aes(x = year, y = log_mean_zp)) +
   geom_point() +
   geom_line(data = ts2_rm, aes(x = year, y = run_mean_zp),
@@ -309,20 +315,19 @@ ggplot(ts2_sum, aes(x = year, y = log_mean_zp)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12,
                                    color = "black"),
         panel.grid = element_blank()) +
-  labs(title = "Zooplankton Displacement Volume — TS2 (1998–2023)",
+  labs(title = "Zooplankton Displacement Volume (1998–2023)",
        y = "log10 ZP (mL/m2)", x = NULL)
 
-## --- SD TS2 ---
-ggplot(ts2_sum, aes(x = region, y = sd_zp, color = season)) +
-  geom_point(size = 4) +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "Zooplankton Displacement Volume",
-    subtitle = "Time series 2: 1998–2023",
-    y = "SD of log10 running mean ZP volume",
-    color = "Season"
-  ) +
-  theme_bw()
+## --- SD ---
+# ggplot(ts2_sum, aes(x = region, y = sd_zp, color = season)) +
+#   geom_point(size = 4) +
+#   scale_color_brewer(palette = "Set2") +
+#   labs(
+#     title = "Zooplankton Displacement Volume (1998–2023)",
+#     y = "SD of log10 annual log10 mean ZP volume",
+#     color = "Season"
+#   ) +
+#   theme_bw()
 
 ## --- anomaly --- 
 ts2_anom <- ts2_sum %>%

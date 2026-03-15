@@ -146,7 +146,7 @@ Log-transformed values are averaged across all stations within a region × seaso
 A right-aligned, index-aware running mean (k = 5) is applied using `runner::mean_run()`. The window uses all available years up to k, so early years in a time series receive shorter windows rather than being dropped.
 
 ### Standard deviation
-SD is computed across the running means within each region × season group. This is the primary metric for the trophic amplification test: if variability increases at higher trophic levels, SD should be larger for forage fish than for phytoplankton.
+SD is computed across the annual log-mean within each region × season group. This is the primary metric for the trophic amplification test: if variability increases at higher trophic levels, SD should be larger for forage fish than for phytoplankton.
 
 ---
 
