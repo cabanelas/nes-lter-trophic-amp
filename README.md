@@ -72,9 +72,11 @@ nes-lter-trophic-amp/
 │   ├── trophic_amp_zooplankton.R       # log transform → running mean → SD → outputs for zooplankton
 │   ├── trophic_amp_ichthyoplankton.R   # log transform → running mean → SD → outputs for ichthyoplankton
 │   ├── trophic_amp_foragefish.R        # vessel/gear corrections; log transform → running mean → SD → outputs for forage fishes 
+│   ├── trophic_amp_figures.R           # figures 
 ├── data/
 │   ├── raw/                            # raw, publicly available data (not tracked by git)
 │   ├── output/                         # processed CSVs               (not tracked by git)
+├── figures/                            # optional                     (not tracked by git)
 ├── .gitignore
 └── README.md
 ```
