@@ -127,6 +127,7 @@ renv::restore()
 source("scripts/trophic_amp_zooplankton.R")
 source("scripts/trophic_amp_ichthyoplankton.R")
 source("scripts/trophic_amp_foragefish.R")
+source("scripts/trophic_amp_figures.R") #optional
 ```
 
 ---
