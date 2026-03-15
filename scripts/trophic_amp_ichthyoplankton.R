@@ -20,7 +20,9 @@
 ## Data available for cruises through 2023 - As of 2024_11_06
 ##
 ## Outputs (data/output/):
-##   - 
+##   - trophamp_ichthyo_1998_2023_full = all station rows with sd and run_mean joined on
+##   - trophamp_ichthyo_1998_2023_sum  = one row per region/season/year (annual means only)
+##   - trophamp_ichthyo_1998_2023_sd   = sd_ichthyo per region/season
 ################################################################################
 
 ## ------------------------------------------ ##
@@ -121,7 +123,8 @@ ggplot(ichthyo, aes(x = year, y = ichthyosum)) +
 
 ggplot(ichthyo, aes(x = year, y = ichthyosum)) +
   geom_point() +
-  facet_grid(season~region, scales = "free")
+  facet_grid(season~region, scales = "free") +
+  theme_bw()
 
 ## ------------------------------------------ ##
 #    Split into Two Time Series
@@ -129,9 +132,9 @@ ggplot(ichthyo, aes(x = year, y = ichthyosum)) +
 
 ## --- Time series 1 = 1977-1987 ---
 ts1_ichthyo <- ichthyo %>%
-  filter(between(year, 1977, 1987)) #starts 1977
+  filter(between(year, 1977, 1987)) 
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 # matched to chla time series
 ts2_ichthyo <- ichthyo %>%
   filter(year >= 1998)
@@ -139,20 +142,21 @@ ts2_ichthyo <- ichthyo %>%
 ## ------------------------------------------ ##
 #    1) Log Transformation
 ## ------------------------------------------ ##
+# log10(x + min_nonzero/2) per region/season/species group
 # find the minimum non-zero value for each region and season
 
 log_transform <- function(df) {
   df %>%
     group_by(region, season) %>%
     mutate(
-      min_nonzero      = min(ichthyosum[ichthyosum > 0], na.rm = TRUE),
-      log10_ichthyo    = log10(ichthyosum + min_nonzero / 2)
+      min_nonzero   = min(ichthyosum[ichthyosum > 0], na.rm = TRUE),
+      log10_ichthyo = log10(ichthyosum + min_nonzero / 2)
     ) %>%
     ungroup()
 }
 
 ts1_ichthyo <- log_transform(ts1_ichthyo) # TS1: 1977–1987 
-ts2_ichthyo <- log_transform(ts2_ichthyo) # TS2: 1998–present
+ts2_ichthyo <- log_transform(ts2_ichthyo) # TS2: 1998–2023
 
 ## --- plot ---
 ggplot(ts2_ichthyo, aes(x = year, y = log10_ichthyo)) +
@@ -199,7 +203,7 @@ ts1_ichthyo_sum <- ts1_ichthyo %>%
     .groups = "drop" 
   )
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 ## --- Full station-level data with annual mean column attached ---
 # station-level rows retained 
 ts2_ichthyo <- ts2_ichthyo %>%
@@ -247,7 +251,7 @@ ts1_rm <- ts1_ichthyo_sum %>%
                                              idx = year, na_rm = TRUE)) %>%
   ungroup()
 
-## --- Time series 2 = 1998-now ---
+## --- Time series 2 = 1998-2023 ---
 ts2_rm <- ts2_ichthyo_sum %>%
   arrange(region, season, year) %>%
   group_by(region, season) %>%
@@ -268,29 +272,28 @@ ggplot(ts2_rm, aes(x = year, y = run_mean_ichthyo)) +
 # does variability increase at higher trophic levels?
 
 ## --- Time series 1 = 1977-1987 ---
-ts1_sd <- ts1_rm %>%
+ts1_ichthyo <- ts1_ichthyo %>%
   group_by(region, season) %>%
-  summarize(sd_ichthyo = sd(run_mean_ichthyo, na.rm = TRUE),
-            .groups = "drop")
-# ts1_ichthyo <- ts1_ichthyo %>%
-#   group_by(region, season) %>%
-#   mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
-#   ungroup()
+  mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
+  ungroup()
 
-## --- Time series 2 = 1998-now ---
-ts2_sd <- ts2_rm %>%
+## --- Time series 2 = 1998-2023 ---
+ts2_ichthyo <- ts2_ichthyo %>%
   group_by(region, season) %>%
-  summarize(sd_ichthyo = sd(run_mean_ichthyo, na.rm = TRUE),
-            .groups = "drop")
-# ts2_ichthyo <- ts2_ichthyo %>%
-#   group_by(region, season) %>%
-#   mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
-#   ungroup()
+  mutate(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE)) %>%
+  ungroup()
+
+# final SD table
+ip_sd <- ts2_ichthyo %>%
+  group_by(region, season) %>%
+  summarize(sd_ichthyo = sd(log_mean_ichthyo, na.rm = TRUE), .groups = "drop")
 
 ## --- plot ---
-ggplot(ts2_sd, aes(x = season, y = sd_ichthyo)) +
-  geom_point() +
-  facet_grid(season~region) 
+ggplot(ip_sd, aes(x = season, y = sd_ichthyo, color = region)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = region)) +
+  theme_bw() +
+  labs(title = "SD ichthyo 1998-2023")
 
 ## ------------------------------------------ ##
 #    Final Output Tables        
@@ -304,8 +307,11 @@ ggplot(ts2_sd, aes(x = season, y = sd_ichthyo)) +
 ## --- Time series 1 ---
 ts1_ichthyo_full <- ts1_ichthyo %>%
   left_join(ts1_rm %>% select(region, season, year, run_mean_ichthyo),
-            by = c("region", "season", "year")) %>%
-  left_join(ts1_sd, by = c("region", "season"))
+            by = c("region", "season", "year"))
+# ts1_ichthyo_full <- ts1_ichthyo %>%
+#   left_join(ts1_rm %>% select(region, season, year, run_mean_ichthyo),
+#             by = c("region", "season", "year")) %>%
+#   left_join(ts1_sd, by = c("region", "season"))
 
 ts1_ichthyo_sum <- ts1_ichthyo_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
@@ -316,8 +322,11 @@ ts1_ichthyo_sum <- ts1_ichthyo_full %>%
 ## --- Time series 2 ---
 ts2_ichthyo_full <- ts2_ichthyo %>%
   left_join(ts2_rm %>% select(region, season, year, run_mean_ichthyo),
-            by = c("region", "season", "year")) %>%
-  left_join(ts2_sd, by = c("region", "season"))
+            by = c("region", "season", "year"))
+# ts2_ichthyo_full <- ts2_ichthyo %>%
+#   left_join(ts2_rm %>% select(region, season, year, run_mean_ichthyo),
+#             by = c("region", "season", "year")) %>%
+#   left_join(ts2_sd, by = c("region", "season"))
 
 ts2_ichthyo_sum <- ts2_ichthyo_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
@@ -325,18 +334,17 @@ ts2_ichthyo_sum <- ts2_ichthyo_full %>%
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt, 
          sd_ichthyo, run_mean_ichthyo)
 
-#write.csv(ts1_ichthyo_full, "data/output/trophamp_ichthyo_1978_1987_full.csv", row.names = FALSE)
-#write.csv(ts1_ichthyo_sum,  "data/output/trophamp_ichthyo_1978_1987_sum.csv",  row.names = FALSE)
-#write.csv(ts2_ichthyo_full, "data/output/trophamp_ichthyo_1998_2023_full.csv", row.names = FALSE)
-#write.csv(ts2_ichthyo_sum,  "data/output/trophamp_ichthyo_1998_2023_sum.csv",  row.names = FALSE)
-
-#write.csv(ts2_sd, "data/output/trophamp_ichthyo_1998_2023_sd.csv", row.names = FALSE)
+# write.csv(ts1_ichthyo_full, "data/output/trophamp_ichthyo_1977_1987_full.csv", row.names = FALSE)
+# write.csv(ts1_ichthyo_sum,  "data/output/trophamp_ichthyo_1977_1987_sum.csv",  row.names = FALSE)
+# write.csv(ts2_ichthyo_full, "data/output/trophamp_ichthyo_1998_2023_full.csv", row.names = FALSE)
+# write.csv(ts2_ichthyo_sum,  "data/output/trophamp_ichthyo_1998_2023_sum.csv",  row.names = FALSE)
+# write.csv(ip_sd, "data/output/trophamp_ichthyo_1998_2023_sd.csv", row.names = FALSE)
 
 ## ------------------------------------------ ##
 #    Plots                                 
 ## ------------------------------------------ ##
 
-## --- Annual log means TS2 ---
+## --- Annual log means ---
 ggplot(ts2_ichthyo_sum, aes(x = year, y = log_mean_ichthyo)) +
   geom_point() +
   geom_line(data = ts2_rm, aes(x = year, y = run_mean_ichthyo),
@@ -346,20 +354,20 @@ ggplot(ts2_ichthyo_sum, aes(x = year, y = log_mean_ichthyo)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12,
                                    color = "black"),
         panel.grid = element_blank()) +
-  labs(title = "Ichthyoplankton — TS2 (1998–2023)",
+  labs(title = "Ichthyoplankton (1998–2023)",
        y = "log10", x = NULL)
 
-## --- SD TS2 ---
-ggplot(ts2_ichthyo_sum, aes(x = region, y = sd_ichthyo, color = season)) +
-  geom_point(size = 4) +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "Ichthyoplankton",
-    subtitle = "Time series 2: 1998–2023",
-    y = "SD of log10 running mean",
-    color = "Season"
-  ) +
-  theme_bw()
+## --- SD ---
+# ggplot(ts2_ichthyo_sum, aes(x = region, y = sd_ichthyo, color = season)) +
+#   geom_point(size = 4) +
+#   scale_color_brewer(palette = "Set2") +
+#   labs(
+#     title = "Ichthyoplankton",
+#     subtitle = "Time series 2: 1998–2023",
+#     y = "SD of log10 running mean",
+#     color = "Season"
+#   ) +
+#   theme_bw()
 
 ## --- anomaly --- 
 ts2_anom <- ts2_ichthyo_sum %>%
