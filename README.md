@@ -24,7 +24,7 @@ The working group is pursuing three interconnected projects:
 
 1. **[Normalized Biomass Size Spectra (NBSS)](https://github.com/cabanelas/nes-lter-zp-sizespectra.git)**
 2. **Trophic Amplification** = *this repository*
-3. **[Double Integration Hypothesis](https://github.com/cabanelas/doubleintegration.git)**
+3. **[Double Integration Hypothesis](https://github.com/cabanelas/lter-double-integration.git)**
 
 This repository contains the **NES-LTER pipeline** for Project 2. Equivalent pipelines for the other projects are maintained in separate repositories.
 
