@@ -79,7 +79,9 @@ spring_meta <- read_csv(here::here("data", "raw",
                         "22561_NEFSCSpringFisheriesIndependentBottomTrawlData",
                         "22561_UNION_FSCS_SVSTA.csv"),
                         col_types = cols(ID = col_character())) %>%
-  clean_names()
+  clean_names() %>%
+  # fix typo
+  rename(end_est_towdate = being_est_towdate)
 
 ## --- spp codes --- 
 spp_codes <- read_csv(here::here("data", "raw",
@@ -182,7 +184,8 @@ prep_survey <- function(catch, meta, season_label) {
     # id = Concatenation of Cruise6, Stratum, Tow and Station values
     left_join(
       meta %>%
-        select(id, svvessel, est_year, est_month,
+        select(id, svvessel, est_year, est_month, est_day,
+               begin_est_towdate, end_est_towdate,
                decdeg_beglat, decdeg_beglon, avgdepth,
                surftemp, surfsalin, bottemp, botsalin),
       by = "id"
@@ -190,6 +193,7 @@ prep_survey <- function(catch, meta, season_label) {
     rename(
       year   = est_year,
       month  = est_month,
+      day    = est_day,
       lat    = decdeg_beglat,
       lon    = decdeg_beglon,
       depth  = avgdepth,
@@ -202,7 +206,8 @@ prep_survey <- function(catch, meta, season_label) {
     ) %>%
     # sum across sexes for same species at same haul
     # this collapses male + female + unknown into one row per haul x svspp
-    group_by(id, svspp, year, month, lat, lon, depth, stratum,
+    group_by(id, svspp, year, month, day, begin_est_towdate, end_est_towdate,
+             lat, lon, depth, stratum,
              svvessel, season_survey, surftemp, surfsalin, bottemp, botsalin) %>%
     summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
 }
@@ -420,9 +425,9 @@ ff <- bind_rows(fall_df_region, spring_df_region) %>%
 ## --- Sum ALL 4 species into single forage fish index per haul ---  
 unique(ff$target_taxa)
 ff <- ff %>%
-  group_by(id, year, month, season, season_survey,
-           lat, lon, depth, stratum, stratum_name, region, svvessel,
-           surftemp, surfsalin, bottemp, botsalin) %>%
+  group_by(id, year, month, day, begin_est_towdate, end_est_towdate,
+           season, season_survey, lat, lon, depth, stratum, stratum_name, 
+           region, svvessel, surftemp, surfsalin, bottemp, botsalin) %>%
   summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
 
 ## --- plot raw ---

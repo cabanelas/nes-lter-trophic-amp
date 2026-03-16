@@ -763,3 +763,57 @@ sd_summary %>%
   tab_source_note(
     "ZP & Ichthyo: EcoMon | Forage fish: NEFSC BTS"
   )
+
+
+## ------------------------------------------ ##
+#   FIGURE 10: SD across Trophic Levels
+## ------------------------------------------ ##
+
+sd_long <- sd_summary %>%
+  pivot_longer(
+    cols      = c(SD_zooplankton, SD_ichthyoplankton, SD_foragefish),
+    names_to  = "trophic_level",
+    values_to = "sd"
+  ) %>%
+  mutate(
+    trophic_level = factor(trophic_level,
+                           levels = c("SD_zooplankton",
+                                      "SD_ichthyoplankton",
+                                      "SD_foragefish"),
+                           labels = c("Zooplankton",
+                                      "Ichthyoplankton",
+                                      "Forage Fish")),
+    region = factor(region,
+                    levels = c("GOM", "GB", "MAB"),
+                    labels = c("Gulf of Maine", "Georges Bank",
+                               "Mid-Atlantic Bight")),
+    season = factor(season,
+                    levels = c("Spring", "Summer", "Fall", "Winter"))
+  )
+
+fig10 <- ggplot(sd_long,
+                aes(x = trophic_level, y = sd,
+                    color = season, shape = season,
+                    group = season)) +
+  geom_point(size = 4, alpha = 0.9) +
+  #geom_line(linewidth = 0.8, alpha = 0.7) +
+  facet_wrap(~region, ncol = 3) +
+  scale_color_brewer(palette = "Set2") +
+  scale_shape_manual(values = c("Spring" = 16, "Summer" = 17,
+                                "Fall"   = 15, "Winter" = 18)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(
+    title    = "SD Across Trophic Levels (1998–2023)",
+    x        = NULL,     y     = bquote("SD of" ~ log[10] ~ "annual mean"),
+    color    = "Season", shape = "Season"
+  ) +
+  theme_bw() +
+  theme(
+    strip.text   = element_text(face = "bold"),
+    axis.text.x  = element_text(angle = 20, hjust = 1, color = "black"),
+    panel.grid.x = element_blank(),
+    legend.position = "bottom"
+  )
+
+print(fig10)
+# save_fig(fig10, "fig10_sd_trophic_levels.png", width = 11, height = 5)
