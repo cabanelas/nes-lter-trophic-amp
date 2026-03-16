@@ -410,12 +410,30 @@ table(spring_df_region$region, useNA = "ifany")
 ## ------------------------------------------ ##
 ff <- bind_rows(fall_df_region, spring_df_region) %>%
   left_join(forage_spp %>% select(svspp, target_taxa), by = "svspp") %>%
-  mutate(season = case_when(
-    month %in% 3:5   ~ "Spring",
-    month %in% 6:8   ~ "Summer",
-    month %in% 9:11  ~ "Fall",
-    TRUE             ~ "Winter"
-  ))
+  rename(season = season_survey)
+
+table(ff$season, useNA = "ifany")
+
+fall_meta %>%
+  filter(!is.na(est_month)) %>%
+  distinct(cruise6, est_month) %>%
+  count(est_month, name = "n_cruises") %>%
+  arrange(est_month)
+
+spring_meta %>%
+  filter(!is.na(est_month)) %>%
+  distinct(cruise6, est_month) %>%
+  count(est_month, name = "n_cruises") %>%
+  arrange(est_month)
+
+## ------------------------------------------ ##
+#            Export Species-Level ff
+## ------------------------------------------ ##
+## This preserves one row per haul × species, needed for plots in figs script
+ff_species <- ff %>%
+  mutate(id = paste0("id", id))   # id fix 
+
+#write.csv(ff_species, here::here("data", "output", "ff_species_level_1963_2025.csv"), row.names = FALSE)
 
 ## ------------------------------------------ ##
 #            Total Forage Fish Abundance
@@ -426,7 +444,7 @@ ff <- bind_rows(fall_df_region, spring_df_region) %>%
 unique(ff$target_taxa)
 ff <- ff %>%
   group_by(id, year, month, day, begin_est_towdate, end_est_towdate,
-           season, season_survey, lat, lon, depth, stratum, stratum_name, 
+           season, lat, lon, depth, stratum, stratum_name, 
            region, svvessel, surftemp, surfsalin, bottemp, botsalin) %>%
   summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
 
@@ -734,7 +752,6 @@ ggplot(ts2_check, aes(year, n_in_window)) +
   theme_bw() +
   labs(y = "Observations in 5-year window", x = NULL)
 
-
 ## --- look at tow duration --- 
 # pre-2009: intended duration = 0.5 hr; post-2009: 0.333 hr
 # TOWDUR column is in minutes in the raw metadata
@@ -883,8 +900,13 @@ dur_table <- function(meta, survey_label) {
     ) %>%
     count(est_year, status) %>%
     pivot_wider(names_from = status, values_from = n, values_fill = 0) %>%
-    mutate(pct_drop  = round(Drop / (Keep + Drop + NA) * 100, 1),
-           survey    = survey_label)
+    mutate(
+      pct_drop = round(
+        `Outside window` / (`Within window` + `Outside window` + `NA`) * 100,
+        1
+      ),
+      survey = survey_label
+    )
 }
 
 bind_rows(
