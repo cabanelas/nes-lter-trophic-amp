@@ -617,7 +617,12 @@ ggplot(ff_sd, aes(x = season, y = sd_ff, color = region)) +
 ## --- Time series 1 --
 ts1_ff_full <- ts1_ff %>%
   left_join(ts1_rm_ff %>% select(region, season, year, run_mean_ff),
-            by = c("region", "season", "year"))
+            by = c("region", "season", "year")) %>%
+  #id column is a concatenation of cruise/stratum/tow/station values that 
+  #produces a very large number (~2e17), which gets rounded when written as a 
+  # float in CSV
+  mutate(id = paste0("id", id))
+
 # ts1_ff_full <- ts1_ff %>%
 #   left_join(ts1_rm_ff %>% select(region, season, year, run_mean_ff),
 #             by = c("region", "season", "year")) %>%
@@ -627,12 +632,13 @@ ts1_ff_sum <- ts1_ff_full %>%
   distinct(region, season, year, .keep_all = TRUE) %>%
   select(region, season, year, min_nonzero, log10_ff, log_mean_ff,
          mean_sfc_temp, mean_sfc_salt, mean_btm_temp, mean_btm_salt,
-         sd_ff, run_mean_ff)
+         sd_ff, run_mean_ff) 
 
 ## --- Time series 2 ---
 ts2_ff_full <- ts2_ff %>%
   left_join(ts2_rm_ff %>% select(region, season, year, run_mean_ff),
-            by = c("region", "season", "year"))
+            by = c("region", "season", "year")) %>%
+  mutate(id = paste0("id", id))
 # ts2_ff_full <- ts2_ff %>%
 #   left_join(ts2_rm_ff %>% select(region, season, year, run_mean_ff),
 #             by = c("region", "season", "year")) %>%
