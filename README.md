@@ -3,8 +3,8 @@
 *Interannual Variability and Long-Term Change in Pelagic Community Structure Across a Latitudinal Gradient*
 
 **Author:** Alexandra C. Cabanelas  
-**LTER Site:** Northeast U.S. Shelf Long-Term Ecological Research (NES-LTER)
-**Working group:** Pelagic Community Structure
+**LTER Site:** Northeast U.S. Shelf Long-Term Ecological Research (NES-LTER)  
+**Working group:** Pelagic Community Structure  
 **Created:** August 2025 | **Last updated:** March 2026
 
 ---
