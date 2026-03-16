@@ -1,9 +1,10 @@
 # NES-LTER Trophic Amplification
 ### Long-Term Ecological Research (LTER) Pelagic Synthesis Working Group
-*Pelagic Community Structure: Interannual Variability and Long-Term Change in Pelagic Community Structure Across a Latitudinal Gradient*
+*Interannual Variability and Long-Term Change in Pelagic Community Structure Across a Latitudinal Gradient*
 
 **Author:** Alexandra C. Cabanelas  
-**LTER Site:** Northeast U.S. Shelf Long-Term Ecological Research (NES-LTER)  
+**LTER Site:** Northeast U.S. Shelf Long-Term Ecological Research (NES-LTER)
+**Working group:** Pelagic Community Structure
 **Created:** August 2025 | **Last updated:** March 2026
 
 ---
