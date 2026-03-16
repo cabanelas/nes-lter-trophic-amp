@@ -96,7 +96,7 @@ ichthyo_full <- read_csv(here::here("data", "output",
                                     "trophamp_ichthyo_1998_2023_full.csv"))
 ## --- Forage Fish ---
 ff_full <- read_csv(here::here("data", "output",
-                               "trophamp_ff_1998_2023_full.csv"))
+                               "trophamp_ff_1998_2023_full.csv")) 
 
 ## --- Collapse to one row per region/season/year for time series plots ---
 zp <- zp_full %>%
@@ -187,11 +187,11 @@ prep_survey <- function(catch, meta, season_label) {
            lon          = decdeg_beglon,
            depth        = avgdepth,
            wtcpue       = expcatchwt) %>%
-    mutate(season_survey = season_label,
+    mutate(season = season_label,
            wtcpue        = as.numeric(wtcpue),
            svvessel      = as.character(svvessel)) %>%
     group_by(id, svspp, year, month, lat, lon, depth, stratum,
-             svvessel, season_survey, surftemp, surfsalin, 
+             svvessel, season, surftemp, surfsalin, 
              bottemp, botsalin) %>%
     summarise(wtcpue = sum(wtcpue, na.rm = TRUE), .groups = "drop")
 }
@@ -252,7 +252,7 @@ raw_ff_s <- bind_rows(
   prep_survey(spring_catch, spring_meta, "Spring")
 ) %>%
   filter(between(year, 1998, 2023)) %>%
-  group_by(season_survey, year) %>%
+  group_by(season, year) %>%
   summarise(wtcpue = mean(wtcpue, na.rm = TRUE), .groups = "drop") %>%
   mutate(version = "Raw")
   
@@ -263,7 +263,7 @@ corrected_ff <- ff_full %>%
   mutate(version = "Corrected")
   
 corrected_ff_s <- ff_full %>%
-  group_by(season_survey, year) %>%
+  group_by(season, year) %>%
   summarise(wtcpue = mean(wtcpue, na.rm = TRUE), .groups = "drop") %>%
   mutate(version = "Corrected")
 
@@ -308,7 +308,7 @@ fig02b <- bind_rows(raw_ff_s, corrected_ff_s) %>%
                                 "Corrected" = "steelblue")) +
   scale_linetype_manual(values = c("Raw"       = "dashed", 
                                    "Corrected" = "solid")) +
-  facet_wrap(~season_survey, scales = "free_y") +
+  facet_wrap(~season, scales = "free_y") +
   labs(title    = "Effect of Vessel & Gear Corrections on Forage Fish CPUE",
        subtitle = "1998–2023 | Dashed line = Bigelow transition (2009)",
        x = NULL, y = "Mean CPUE (kg tow\u207B\u00B9)",
@@ -326,9 +326,9 @@ print(fig02b)
 fig02a + 
   bind_rows(raw_ff_s, corrected_ff_s) %>%
   filter(year >= 1998) +
-  facet_wrap(~season_survey) +
+  facet_wrap(~season) +
   theme(legend.position = "bottom")
-  
+
 rm(fall_catch, fall_meta, spring_catch, spring_meta,
    spp_codes, forage_spp, forage_codes,
    raw_ff, raw_ff_s, corrected_ff, corrected_ff_s, prep_survey)
@@ -493,7 +493,8 @@ fig06a <- zp_full %>%
   scale_color_brewer(palette = "Set1") +
   theme_bw() +
   labs(title = "Zooplankton Displacement Volume (1998–present)",
-       y = "log\u2081\u2080 ZP (mL m\u207B\u00B2)", x = NULL, color = "Region")
+       y = expression(log[10]~"annual mean ZP"), 
+       x = NULL, color = "Region")
 
 ## --- Distribution by region ---
 fig06b <- zp %>%
@@ -503,7 +504,8 @@ fig06b <- zp %>%
   scale_fill_brewer(palette = "Set1") +
   theme_bw() +
   labs(title = "Zooplankton Distribution by Region",
-       y = "log\u2081\u2080 annual mean ZP", x = NULL) +
+       y = expression(log[10]~"annual mean ZP"), 
+       x = NULL) +
   theme(legend.position = "none")
 
 print(fig06a)
@@ -515,7 +517,8 @@ print(fig06b)
 #   FIGURE 7: MAB vs SNE Zooplankton Comparison
 ## ------------------------------------------ ##
 
-zp_raw <- read_csv(here::here("data", "raw", "EcoMon_plankton_v3_10.csv")) %>%
+zp_raw <- read_csv(here::here("data", "raw", 
+                              "EcoMon_plankton_v3_10.csv")) %>%
   clean_names() %>%
   select(region, season, year, volume_1m2) %>%
   filter(region %in% c("MAB", "SNE", "GOM", "GB"), year >= 1998) %>%
@@ -526,7 +529,8 @@ zp_raw <- read_csv(here::here("data", "raw", "EcoMon_plankton_v3_10.csv")) %>%
     log10_zp    = log10(volume_1m2 + min_nonzero / 2)
   ) %>%
   group_by(region, season, year) %>%
-  summarize(log_mean_zp = mean(log10_zp, na.rm = TRUE), .groups = "drop")
+  summarize(log_mean_zp = mean(log10_zp, na.rm = TRUE),
+            .groups = "drop")
 
 ## --- SD by region (MAB and SNE separate) ---
 zp_sd_compare <- zp_raw %>%
@@ -763,7 +767,6 @@ sd_summary %>%
   tab_source_note(
     "ZP & Ichthyo: EcoMon | Forage fish: NEFSC BTS"
   )
-
 
 ## ------------------------------------------ ##
 #   FIGURE 10: SD across Trophic Levels
